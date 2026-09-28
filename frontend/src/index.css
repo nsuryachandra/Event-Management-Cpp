@@ -460,3 +460,14 @@ tbody tr:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Hero Feature Cards Subtle Hover Effect */
+.hero-feature-card {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+}
+
+.hero-feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.03) !important;
+  border-color: #cbd5e1 !important;
+}

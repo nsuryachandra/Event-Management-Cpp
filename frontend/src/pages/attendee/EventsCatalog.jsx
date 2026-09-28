@@ -89,70 +89,40 @@ export const EventsCatalog = () => {
       <section
         style={{
           position: 'relative',
-          padding: '80px 24px 64px',
-          background: 'linear-gradient(180deg, #ffffff 0%, rgba(241, 245, 249, 0.6) 100%)',
+          padding: '84px 24px 64px',
+          background: 'linear-gradient(180deg, #ffffff 0%, rgba(248, 250, 252, 0.8) 100%)',
           borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
           overflow: 'hidden',
         }}
       >
-        {/* Ambient Glow Orbs */}
+        {/* Ambient Soft Glow Orb */}
         <div
           style={{
             position: 'absolute',
-            top: '-20%',
+            top: '-15%',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '650px',
-            height: '350px',
-            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.08) 50%, transparent 75%)',
-            filter: 'blur(50px)',
+            width: '600px',
+            height: '300px',
+            background: 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.09) 0%, rgba(236, 72, 153, 0.04) 45%, transparent 70%)',
+            filter: 'blur(60px)',
             pointerEvents: 'none',
           }}
         />
 
         <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 20 }}>
-            {/* Top Engine Pill */}
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '6px 16px',
-                borderRadius: '999px',
-                background: 'rgba(238, 242, 255, 0.9)',
-                border: '1px solid rgba(199, 210, 254, 0.8)',
-                boxShadow: '0 2px 8px rgba(79, 70, 229, 0.1)',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 900,
-                  background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-                  color: '#ffffff',
-                  padding: '3px 9px',
-                  borderRadius: '999px',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                C++17 ENGINE
-              </span>
-              <span style={{ fontSize: '0.84rem', color: '#4338ca', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                Zero-Skip Fair FIFO Queue • Instant Resource Allocation
-              </span>
-            </div>
 
             {/* Headline */}
             <h1
               className="display-font"
               style={{
-                fontSize: 'clamp(2.6rem, 5.2vw, 4.2rem)',
-                fontWeight: 900,
-                lineHeight: 1.12,
-                letterSpacing: '-0.035em',
+                fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+                fontWeight: 850,
+                lineHeight: 1.15,
+                letterSpacing: '-0.03em',
                 color: '#0f172a',
-                maxWidth: '920px',
+                maxWidth: '900px',
               }}
             >
               Intelligent Admissions &{' '}
@@ -161,6 +131,7 @@ export const EventsCatalog = () => {
                   background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #ec4899 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
+                  display: 'inline-block',
                 }}
               >
                 Guaranteed Fair Queuing
@@ -170,72 +141,112 @@ export const EventsCatalog = () => {
             {/* Sub-copy */}
             <p
               style={{
-                fontSize: '1.14rem',
+                fontSize: '1.125rem',
                 color: '#475569',
                 lineHeight: 1.65,
-                maxWidth: '720px',
-                fontWeight: 500,
+                maxWidth: '700px',
+                fontWeight: 450,
+                marginTop: '4px',
               }}
             >
               Reserve your seat at premium conferences, track live venue seating limits in real time, and experience guaranteed mathematical zero-skip admissions.
             </p>
 
-            {/* Feature Pills */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+            {/* Feature Cards */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginTop: 16 }}>
               <div
+                className="hero-feature-card"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  color: '#334155',
+                  gap: 10,
+                  fontSize: '0.875rem',
+                  fontWeight: 650,
+                  color: '#1e293b',
                   backgroundColor: '#ffffff',
-                  padding: '8px 16px',
-                  borderRadius: '12px',
+                  padding: '10px 18px',
+                  borderRadius: '14px',
                   border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02)',
                 }}
               >
-                <ShieldCheck size={16} style={{ color: '#2563eb' }} />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 30,
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  }}
+                >
+                  <ShieldCheck size={18} style={{ color: '#2563eb' }} />
+                </div>
                 <span>Deterministic FIFO Fairness</span>
               </div>
 
               <div
+                className="hero-feature-card"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  color: '#334155',
+                  gap: 10,
+                  fontSize: '0.875rem',
+                  fontWeight: 650,
+                  color: '#1e293b',
                   backgroundColor: '#ffffff',
-                  padding: '8px 16px',
-                  borderRadius: '12px',
+                  padding: '10px 18px',
+                  borderRadius: '14px',
                   border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02)',
                 }}
               >
-                <CheckCircle2 size={16} style={{ color: '#059669' }} />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 30,
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(5, 150, 105, 0.08)',
+                  }}
+                >
+                  <CheckCircle2 size={18} style={{ color: '#059669' }} />
+                </div>
                 <span>Live Seat & Capacity Sync</span>
               </div>
 
               <div
+                className="hero-feature-card"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  color: '#334155',
+                  gap: 10,
+                  fontSize: '0.875rem',
+                  fontWeight: 650,
+                  color: '#1e293b',
                   backgroundColor: '#ffffff',
-                  padding: '8px 16px',
-                  borderRadius: '12px',
+                  padding: '10px 18px',
+                  borderRadius: '14px',
                   border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02)',
                 }}
               >
-                <Zap size={16} style={{ color: '#d97706' }} />
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 30,
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+                  }}
+                >
+                  <Zap size={18} style={{ color: '#d97706' }} />
+                </div>
                 <span>Ultra-Fast In-Memory Arrays</span>
               </div>
             </div>

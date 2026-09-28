@@ -97,35 +97,7 @@ export const Navbar = () => {
 
         {/* Live Engine Status & Nav Links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {/* C++ Engine Health Badge */}
-          <div
-            style={{
-              display: 'none',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 14px',
-              backgroundColor: engineOnline ? 'rgba(236, 253, 245, 0.9)' : 'rgba(254, 242, 242, 0.9)',
-              borderRadius: '999px',
-              border: `1px solid ${engineOnline ? '#a7f3d0' : '#fecaca'}`,
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: engineOnline ? '#059669' : '#dc2626',
-              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.03)',
-            }}
-            className="md-flex"
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: engineOnline ? '#10b981' : '#ef4444',
-                boxShadow: engineOnline ? '0 0 8px #10b981' : '0 0 8px #ef4444',
-                display: 'inline-block',
-              }}
-            />
-            <span className="mono-font">{engineOnline ? 'C++17 Engine Online' : 'Connecting Engine...'}</span>
-          </div>
+
 
           {/* Navigation Links */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
