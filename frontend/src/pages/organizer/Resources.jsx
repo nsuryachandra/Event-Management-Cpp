@@ -10,21 +10,16 @@ import {
   Layers,
   Plus,
   Search,
-  Filter,
   Package,
   CheckCircle2,
   AlertTriangle,
-  PlusCircle,
-  MinusCircle,
   Edit2,
   Trash2,
   RefreshCw,
   Cpu,
   Tv,
-  Wifi,
   Zap,
   Tag,
-  ShieldCheck,
   Boxes
 } from 'lucide-react';
 
@@ -38,8 +33,25 @@ const CATEGORIES = [
   'General'
 ];
 
+const getCategoryIcon = (category) => {
+  switch (category) {
+    case 'Badging & Supplies':
+      return <Tag size={15} style={{ color: '#4f46e5' }} />;
+    case 'Audio/Visual':
+      return <Tv size={15} style={{ color: '#0284c7' }} />;
+    case 'Computing':
+      return <Cpu size={15} style={{ color: '#7c3aed' }} />;
+    case 'Hardware':
+      return <Zap size={15} style={{ color: '#d97706' }} />;
+    case 'Furniture':
+      return <Layers size={15} style={{ color: '#059669' }} />;
+    default:
+      return <Package size={15} style={{ color: '#64748b' }} />;
+  }
+};
+
 export const Resources = () => {
-  const { events, activeEventId } = useOutletContext();
+  const { events, activeEventId, activeEvent } = useOutletContext();
   const { showToast } = useToast();
 
   const [resources, setResources] = useState([]);
@@ -51,7 +63,7 @@ export const Resources = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedResource, setSelectedResource] = useState(null);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -131,7 +143,7 @@ export const Resources = () => {
       });
 
       if (res.success) {
-        showToast(`Resource '${formData.name}' created with pool of ${tot} units.`, 'success');
+        showToast(`Resource '${formData.name}' created with ${tot} units.`, 'success');
         setIsAddModalOpen(false);
         fetchResources();
       } else {
@@ -151,8 +163,8 @@ export const Resources = () => {
       return;
     }
     const tot = parseInt(formData.total, 10);
-    if (isNaN(tot) || tot < selectedResource.allocated) {
-      showToast(`Total quantity cannot be less than currently allocated units (${selectedResource.allocated})`, 'error');
+    if (isNaN(tot) || tot < (selectedResource?.allocated || 0)) {
+      showToast(`Total quantity cannot be lower than allocated units (${selectedResource?.allocated || 0}).`, 'error');
       return;
     }
 
@@ -165,7 +177,7 @@ export const Resources = () => {
       });
 
       if (res.success) {
-        showToast(res.message || 'Resource updated successfully', 'success');
+        showToast(`Updated '${formData.name}'.`, 'success');
         setIsEditModalOpen(false);
         fetchResources();
       } else {
@@ -178,82 +190,110 @@ export const Resources = () => {
     }
   };
 
-  const handleDeleteSubmit = async () => {
-    if (!selectedResource) return;
-    if (selectedResource.allocated > 0) {
-      showToast(`Cannot delete resource while ${selectedResource.allocated} units are allocated to attendees.`, 'error');
-      return;
-    }
-
+  const handleQuickRestock = async (resItem, delta) => {
+    setActionLoadingId(resItem.id);
+    const newTotal = resItem.total + delta;
     try {
-      const res = await api.deleteResource(selectedResource.id);
+      const res = await api.updateResource(resItem.id, {
+        name: resItem.name,
+        category: resItem.category || 'General',
+        total: newTotal,
+      });
       if (res.success) {
-        showToast('Resource deleted successfully', 'success');
-        setIsDeleteOpen(false);
+        showToast(`Added +${delta} units to ${resItem.name}. New total: ${newTotal}.`, 'success');
         fetchResources();
       } else {
-        showToast(res.message || 'Failed to delete resource', 'error');
+        showToast(res.message || 'Failed to restock resource', 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Failed to delete resource', 'error');
-    }
-  };
-
-  const handleQuickAllocate = async (resource, delta) => {
-    try {
-      setActionLoadingId(resource.id);
-      const res = delta > 0 
-        ? await api.allocateResource(resource.id, delta) 
-        : await api.releaseResource(resource.id, Math.abs(delta));
-
-      if (res.success) {
-        showToast(res.message || (delta > 0 ? `Allocated unit` : `Released unit`), 'success');
-        fetchResources();
-      } else {
-        showToast(res.message || 'Operation could not be completed', 'error');
-      }
-    } catch (err) {
-      showToast(err.message || 'Failed to update allocation', 'error');
+      showToast('Error updating stock', 'error');
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  // Filtered list
-  const filteredResources = resources.filter((res) => {
-    const matchesSearch =
-      res.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (res.category && res.category.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory =
-      selectedCategory === 'All' || res.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const handleDeleteResource = async () => {
+    if (!deleteTarget) return;
+    try {
+      const res = await api.deleteResource(deleteTarget.id);
+      if (res.success) {
+        showToast(`Deleted ${deleteTarget.name}.`, 'success');
+        setDeleteTarget(null);
+        fetchResources();
+      } else {
+        showToast(res.message || 'Failed to delete resource', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to delete resource', 'error');
+    }
+  };
+
+  const filteredResources = resources.filter((r) => {
+    const matchesCat = selectedCategory === 'All' || r.category === selectedCategory;
+    const matchesQuery = r.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCat && matchesQuery;
   });
 
-  // Aggregates
-  const totalItems = resources.reduce((acc, r) => acc + (r.total || 0), 0);
+  const totalPoolUnits = resources.reduce((acc, r) => acc + (r.total || 0), 0);
   const totalAllocated = resources.reduce((acc, r) => acc + (r.allocated || 0), 0);
-  const totalAvailable = totalItems - totalAllocated;
-  const utilizationRate = totalItems > 0 ? Math.round((totalAllocated / totalItems) * 100) : 0;
-
-  const currentActiveEventObj = events.find(e => e.id === activeEventId);
+  const totalAvailable = resources.reduce((acc, r) => acc + (r.available || 0), 0);
+  const utilizationPct = totalPoolUnits > 0 ? Math.round((totalAllocated / totalPoolUnits) * 100) : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: '1440px', margin: '0 auto' }}>
+      {/* Page Header */}
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start', 
+          flexWrap: 'wrap', 
+          gap: 16,
+          padding: '24px 28px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+        }}
+      >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            <Boxes size={15} /> Auto-Synced Resource Pool
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: '#f1f5f9',
+                color: '#475569',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              {activeEvent ? activeEvent.title : 'All Events'}
+            </span>
           </div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: 4 }}>
-            Resource Inventory
+
+          <h1 
+            style={{ 
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.75rem', 
+              fontWeight: 700, 
+              color: '#0f172a', 
+              letterSpacing: '-0.025em',
+              lineHeight: 1.25,
+              margin: '0 0 6px 0',
+            }}
+          >
+            Resources & Kit Inventory
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-            {currentActiveEventObj ? `Managing equipment & badge pools for ${currentActiveEventObj.title}` : 'All event assets, badges, and hardware pools across the platform'}
+
+          <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>
+            Manage badges, equipment assets, and delegate kits with real-time stock allocation and quick restocking.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             onClick={fetchResources}
             disabled={loading}
@@ -265,238 +305,249 @@ export const Resources = () => {
             onClick={handleOpenAdd}
             className="btn btn-primary btn-sm"
           >
-            <Plus size={16} /> Add Resource
+            <Plus size={15} /> Add Resource
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18 }}>
+      {/* KPI Stats Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
         <StatCard
-          title="Total Resource Units"
-          value={totalItems}
-          subtitle={`${resources.length} distinct resource pools`}
-          icon={<Package size={20} />}
+          title="Total Stock Units"
+          value={totalPoolUnits}
+          subtitle="All equipment in catalog"
+          icon={<Package size={18} />}
           color="primary"
+          trend="Inventory"
         />
         <StatCard
-          title="Allocated to Attendees"
+          title="Allocated Units"
           value={totalAllocated}
-          subtitle={`${utilizationRate}% of total inventory allocated`}
-          icon={<Layers size={20} />}
-          color="warning"
+          subtitle={`Distributed across confirmed guests`}
+          icon={<CheckCircle2 size={18} />}
+          color="emerald"
+          trend={`${utilizationPct}% Assigned`}
         />
         <StatCard
-          title="Available in Stock"
+          title="Available Reserve"
           value={totalAvailable}
-          subtitle="Ready for incoming registrants"
-          icon={<CheckCircle2 size={20} />}
-          color="success"
+          subtitle="Ready for walk-ins / queue"
+          icon={<Boxes size={18} />}
+          color={totalAvailable < 15 ? 'warning' : 'secondary'}
+          trend={totalAvailable < 15 ? 'Low Buffer' : 'Healthy'}
         />
         <StatCard
-          title="Auto-Sync Health"
-          value={`${utilizationRate}%`}
-          subtitle={utilizationRate >= 90 ? 'Near Capacity Buffer' : 'Optimal Inventory Buffer'}
-          icon={<ShieldCheck size={20} />}
+          title="Active Resource Pools"
+          value={resources.length}
+          subtitle="Categories & kit bundles"
+          icon={<Layers size={18} />}
           color="secondary"
+          trend="Active"
         />
       </div>
 
-      {/* Search and Category Filter Bar */}
-      <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '240px', maxWidth: '400px' }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-faint)' }} />
-            <input
-              type="text"
-              placeholder="Search resource name or category..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%', paddingLeft: 36, fontSize: '0.86rem' }}
-            />
-          </div>
+      {/* Filter and Search Bar */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '14px 18px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        {/* Category Tabs */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8125rem',
+                fontWeight: selectedCategory === cat ? 600 : 500,
+                backgroundColor: selectedCategory === cat ? '#eef2ff' : '#ffffff',
+                color: selectedCategory === cat ? '#4f46e5' : '#475569',
+                border: selectedCategory === cat ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
 
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '5px 12px', whiteSpace: 'nowrap' }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+        {/* Search */}
+        <div style={{ position: 'relative', width: '260px' }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search resource name..."
+            style={{
+              paddingLeft: '32px',
+              paddingTop: '6px',
+              paddingBottom: '6px',
+              fontSize: '0.8125rem',
+              borderRadius: '6px',
+            }}
+          />
         </div>
       </div>
 
-      {/* Inventory Grid / Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* Inventory Table */}
+      <div 
+        style={{ 
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+          overflow: 'hidden',
+        }}
+      >
         {loading ? (
-          <div style={{ padding: '60px 0', textAlign: 'center' }}>
-            <Spinner size={32} label="Loading resource inventory..." />
+          <div style={{ padding: '40px', display: 'flex', justifyContent: 'center' }}>
+            <Spinner size={32} label="Loading resources..." />
           </div>
         ) : filteredResources.length === 0 ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>
-            <Package size={44} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--ink-primary)', marginBottom: 4 }}>
-              No Resources Found
-            </h3>
-            <p style={{ fontSize: '0.86rem', maxWidth: '420px', margin: '0 auto 18px' }}>
-              {searchQuery || selectedCategory !== 'All' 
-                ? 'No items matched your current filter criteria.' 
-                : 'No resources have been registered for this event yet.'}
+          <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '1rem', marginBottom: 4 }}>
+              No resources found
+            </div>
+            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+              {searchQuery ? 'No items match your search.' : 'Click "Add Resource" to create an inventory item.'}
             </p>
-            <button onClick={handleOpenAdd} className="btn btn-primary btn-sm">
-              <Plus size={15} /> Add First Resource
-            </button>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
               <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-main)', color: 'var(--ink-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '14px 20px' }}>Resource Pool</th>
-                  <th style={{ padding: '14px 20px' }}>Category</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'center' }}>Total Units</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'center' }}>Allocated</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'center' }}>Available</th>
-                  <th style={{ padding: '14px 20px' }}>Utilization</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'center' }}>Quick Adjust</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'right' }}>Actions</th>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px 18px' }}>Resource Item</th>
+                  <th style={{ padding: '12px 18px' }}>Category</th>
+                  <th style={{ padding: '12px 18px' }}>Allocation Status</th>
+                  <th style={{ padding: '12px 18px' }}>Available Units</th>
+                  <th style={{ padding: '12px 18px', textAlign: 'right' }}>Quick Restock & Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredResources.map((res) => {
-                  const available = (res.total || 0) - (res.allocated || 0);
-                  const pct = res.total > 0 ? Math.round((res.allocated / res.total) * 100) : 0;
-                  const isExhausted = available <= 0;
+                  const util = res.total > 0 ? Math.round((res.allocated / res.total) * 100) : 0;
+                  const isLow = res.available <= 5;
                   const isBusy = actionLoadingId === res.id;
 
                   return (
-                    <tr key={res.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s ease' }}>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontWeight: 800, color: 'var(--ink-primary)', fontSize: '0.92rem' }}>
-                          {res.name}
-                        </div>
-                        <span className="mono-font" style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
-                          Resource #{res.id} • Event #{res.eventId}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '16px 20px' }}>
-                        <span
-                          className="mono-font"
-                          style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            padding: '3px 8px',
-                            borderRadius: 'var(--radius-full)',
-                            background: 'rgba(79, 70, 229, 0.08)',
-                            color: '#4f46e5',
-                            border: '1px solid rgba(79, 70, 229, 0.2)',
-                          }}
-                        >
-                          {res.category || 'General'}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '16px 20px', textAlign: 'center', fontWeight: 800, color: 'var(--ink-primary)' }}>
-                        {res.total}
-                      </td>
-
-                      <td style={{ padding: '16px 20px', textAlign: 'center' }}>
-                        <span
-                          className="mono-font"
-                          style={{
-                            fontWeight: 800,
-                            padding: '3px 10px',
-                            borderRadius: 'var(--radius-xs)',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            border: '1px solid #bfdbfe',
-                          }}
-                        >
-                          {res.allocated}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '16px 20px', textAlign: 'center' }}>
-                        <span
-                          className="mono-font"
-                          style={{
-                            fontWeight: 800,
-                            padding: '3px 10px',
-                            borderRadius: 'var(--radius-xs)',
-                            backgroundColor: isExhausted ? '#fef2f2' : '#ecfdf5',
-                            color: isExhausted ? '#dc2626' : '#059669',
-                            border: `1px solid ${isExhausted ? '#fecaca' : '#a7f3d0'}`,
-                          }}
-                        >
-                          {available}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '16px 20px', minWidth: '140px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: 4 }}>
-                          <span style={{ color: 'var(--ink-muted)' }}>{pct}% in use</span>
-                        </div>
-                        <div style={{ width: '100%', height: 6, backgroundColor: '#f1f5f9', borderRadius: 'var(--radius-full)', overflow: 'hidden', border: '1px solid var(--border-main)' }}>
+                    <tr key={res.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div
                             style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '8px',
+                              backgroundColor: '#f1f5f9',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {getCategoryIcon(res.category)}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: '#0f172a' }}>{res.name}</div>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: '#64748b' }}>
+                              RES-#{res.id}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td style={{ padding: '14px 18px', color: '#475569', fontSize: '0.8125rem' }}>
+                        {res.category || 'General'}
+                      </td>
+
+                      <td style={{ padding: '14px 18px', width: '240px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: 4 }}>
+                          <span style={{ color: '#64748b' }}>
+                            {res.allocated} / {res.total} allocated
+                          </span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: util >= 90 ? '#e11d48' : '#4f46e5' }}>
+                            {util}%
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: 6, backgroundColor: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${Math.min(util, 100)}%`,
                               height: '100%',
-                              borderRadius: 'var(--radius-full)',
-                              background: pct >= 90 ? 'var(--grad-ruby)' : pct >= 70 ? 'var(--grad-sunset)' : 'var(--grad-emerald)',
-                              width: `${Math.min(100, pct)}%`,
+                              backgroundColor: util >= 90 ? '#e11d48' : util >= 75 ? '#f59e0b' : '#10b981',
+                              borderRadius: '999px',
+                              transition: 'width 0.3s ease',
                             }}
                           />
                         </div>
                       </td>
 
-                      <td style={{ padding: '16px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: 6 }}>
-                          <button
-                            onClick={() => handleQuickAllocate(res, 1)}
-                            disabled={isBusy || available <= 0}
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '4px 8px', fontSize: '0.74rem', fontWeight: 700, color: '#059669' }}
-                            title="Allocate +1 Unit to Attendee"
-                          >
-                            +1 Allocate
-                          </button>
-                          <button
-                            onClick={() => handleQuickAllocate(res, -1)}
-                            disabled={isBusy || res.allocated <= 0}
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '4px 8px', fontSize: '0.74rem', fontWeight: 700, color: '#dc2626' }}
-                            title="Release -1 Unit back to Pool"
-                          >
-                            -1 Release
-                          </button>
-                        </div>
+                      <td style={{ padding: '14px 18px' }}>
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: isLow ? '#fef2f2' : '#ecfdf5',
+                            color: isLow ? '#991b1b' : '#065f46',
+                            border: isLow ? '1px solid #fecaca' : '1px solid #a7f3d0',
+                          }}
+                        >
+                          {res.available} Available
+                        </span>
                       </td>
 
-                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <button
+                            onClick={() => handleQuickRestock(res, 5)}
+                            disabled={isBusy}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}
+                            title="Add +5 units to stock pool"
+                          >
+                            +5 Units
+                          </button>
+                          <button
+                            onClick={() => handleQuickRestock(res, 10)}
+                            disabled={isBusy}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}
+                            title="Add +10 units to stock pool"
+                          >
+                            +10 Units
+                          </button>
                           <button
                             onClick={() => handleOpenEdit(res)}
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '6px' }}
+                            style={{ padding: '3px 7px', fontSize: '0.75rem' }}
                             title="Edit Resource"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 size={12} />
                           </button>
                           <button
-                            onClick={() => {
-                              setSelectedResource(res);
-                              setIsDeleteOpen(true);
-                            }}
+                            onClick={() => setDeleteTarget(res)}
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '6px', color: '#dc2626' }}
+                            style={{ padding: '3px 7px', fontSize: '0.75rem', color: '#dc2626' }}
                             title="Delete Resource"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={12} />
                           </button>
                         </div>
                       </td>
@@ -514,46 +565,41 @@ export const Resources = () => {
         <Modal
           isOpen={true}
           onClose={() => setIsAddModalOpen(false)}
-          title="Add New Resource Pool"
-          subtitle="Register badges, gear, or attendee supplies for this event."
+          title="Add Resource Item"
+          subtitle="Configure equipment, kit bundles, or badge assets."
         >
-          <form onSubmit={handleAddSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleAddSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                Resource / Item Name *
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Resource Item Name *
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. VIP Conference Badges & Kits, Microphones, Laptops"
-                style={{ width: '100%' }}
+                placeholder="e.g. VIP NFC Delegate Badge Pack"
                 required
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
                   Category
                 </label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  style={{ width: '100%' }}
                 >
-                  <option value="Badging & Supplies">Badging & Supplies</option>
-                  <option value="Audio/Visual">Audio/Visual</option>
-                  <option value="Computing">Computing</option>
-                  <option value="Hardware">Hardware</option>
-                  <option value="Furniture">Furniture</option>
-                  <option value="General">General</option>
+                  {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                  Total Pool Quantity *
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                  Initial Stock Quantity *
                 </label>
                 <input
                   type="number"
@@ -561,13 +607,12 @@ export const Resources = () => {
                   max="10000"
                   value={formData.total}
                   onChange={(e) => setFormData({ ...formData, total: e.target.value })}
-                  style={{ width: '100%' }}
                   required
                 />
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
@@ -580,7 +625,7 @@ export const Resources = () => {
                 disabled={formSubmitting}
                 className="btn btn-primary"
               >
-                {formSubmitting ? 'Creating...' : 'Create Resource'}
+                {formSubmitting ? 'Adding...' : 'Add Resource'}
               </button>
             </div>
           </form>
@@ -592,63 +637,53 @@ export const Resources = () => {
         <Modal
           isOpen={true}
           onClose={() => setIsEditModalOpen(false)}
-          title={`Edit '${selectedResource.name}'`}
-          subtitle="Adjust resource details and total pool quantity."
+          title={`Edit: ${selectedResource.name}`}
+          subtitle={`Currently allocated: ${selectedResource.allocated} units.`}
         >
-          <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                Resource Name *
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Resource Item Name *
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                style={{ width: '100%' }}
                 required
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
                   Category
                 </label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  style={{ width: '100%' }}
                 >
-                  <option value="Badging & Supplies">Badging & Supplies</option>
-                  <option value="Audio/Visual">Audio/Visual</option>
-                  <option value="Computing">Computing</option>
-                  <option value="Hardware">Hardware</option>
-                  <option value="Furniture">Furniture</option>
-                  <option value="General">General</option>
+                  {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                  Total Pool Quantity *
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                  Total Pool Units (Min: {selectedResource.allocated}) *
                 </label>
                 <input
                   type="number"
-                  min={selectedResource.allocated || 1}
+                  min={selectedResource.allocated}
                   max="10000"
                   value={formData.total}
                   onChange={(e) => setFormData({ ...formData, total: e.target.value })}
-                  style={{ width: '100%' }}
                   required
                 />
               </div>
             </div>
 
-            <div style={{ fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-              Currently allocated to attendees: <strong style={{ color: '#2563eb' }}>{selectedResource.allocated}</strong> units.
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
                 type="button"
                 onClick={() => setIsEditModalOpen(false)}
@@ -668,30 +703,29 @@ export const Resources = () => {
         </Modal>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {isDeleteOpen && selectedResource && (
+      {/* Delete Dialog */}
+      {deleteTarget && (
         <Modal
           isOpen={true}
-          onClose={() => setIsDeleteOpen(false)}
-          title="Delete Resource Pool"
-          subtitle="Are you sure you want to permanently remove this resource?"
+          onClose={() => setDeleteTarget(null)}
+          title="Delete Resource"
+          subtitle={`Are you sure you want to delete '${deleteTarget.name}'?`}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', margin: 0 }}>
-              Deleting <strong>{selectedResource.name}</strong> will remove it from the event resource inventory.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ color: '#475569', fontSize: '0.875rem', margin: 0 }}>
+              Deleting this resource will remove the stock pool from this event. This action cannot be undone.
             </p>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
                 type="button"
-                onClick={() => setIsDeleteOpen(false)}
+                onClick={() => setDeleteTarget(null)}
                 className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleDeleteSubmit}
+                onClick={handleDeleteResource}
                 className="btn btn-danger"
               >
                 Delete Resource

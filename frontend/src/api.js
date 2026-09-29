@@ -31,6 +31,9 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify(payload),
   }),
+  deleteEvent: (id) => request(`/events/${id}`, {
+    method: 'DELETE',
+  }),
 
   // Public Sections & Registration
   getPublicSections: (eventId) => request(`/sections/public${eventId ? `?eventId=${eventId}` : ''}`),
@@ -69,9 +72,16 @@ export const api = {
 
   // Organizer FIFO Queue
   getQueue: (eventId) => request(`/queue${eventId ? `?eventId=${eventId}` : ''}`),
-  admitNext: (eventId) => request(`/queue/admit-next${eventId ? `?eventId=${eventId}` : ''}`, {
-    method: 'POST',
-  }),
+  admitNext: (eventId, options = {}) => {
+    const params = new URLSearchParams();
+    if (eventId) params.append('eventId', eventId);
+    if (options.openSeat) params.append('openSeat', 'true');
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request(`/queue/admit-next${qs}`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+  },
 
   // Organizer Sections
   getSections: (eventId) => request(`/sections${eventId ? `?eventId=${eventId}` : ''}`),

@@ -12,6 +12,7 @@ struct Event {
     std::string venue;
     std::string category;
     std::string status;
+    std::string imageUrl;
 };
 
 struct Attendee {
@@ -64,6 +65,7 @@ int loadQueueAttendeeIds(int queueIds[], int maxCount);
 // Persistence mutations
 bool dbInsertEvent(Event& e);
 bool dbUpdateEvent(const Event& e);
+bool dbDeleteEvent(int id);
 
 bool dbInsertAttendee(Attendee& a);
 bool dbUpdateAttendee(const Attendee& a);

@@ -303,7 +303,7 @@ export const Register = () => {
           >
             <ShieldCheck size={20} style={{ color: '#2563eb', flexShrink: 0 }} />
             <span style={{ fontSize: '0.82rem', color: '#475569', lineHeight: 1.4, fontWeight: 500 }}>
-              Admissions are processed with zero-skip fairness guaranteed by the C++17 array FIFO engine.
+              Admissions are processed fairly with guaranteed real-time capacity validation.
             </span>
           </div>
         </div>
@@ -336,11 +336,12 @@ export const Register = () => {
                 id="event-select"
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(parseInt(e.target.value))}
+                className="input-focus-glow"
                 style={{
                   width: '100%',
-                  padding: '10px 14px',
+                  padding: '11px 14px',
                   borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
+                  border: '1.5px solid #cbd5e1',
                   backgroundColor: '#f8fafc',
                   fontSize: '0.9rem',
                   color: '#0f172a',
@@ -358,32 +359,131 @@ export const Register = () => {
             </div>
 
             <div>
-              <label htmlFor="section-select" style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: 8 }}>
                 Select Event Place / Session *
               </label>
-              <select
-                id="section-select"
-                value={selectedSection}
-                onChange={(e) => setSelectedSection(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#f8fafc',
-                  fontSize: '0.9rem',
-                  color: '#0f172a',
-                  fontWeight: 600,
-                  outline: 'none',
-                }}
-                required
-              >
-                {sections.map((sec) => (
-                  <option key={sec.id} value={sec.name}>
-                    {sec.name} ({sec.occupied}/{sec.capacity} seats occupied — {sec.available > 0 ? `${sec.available} available` : 'FULL - FIFO Queue'})
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {sections.map((sec) => {
+                  const isSelected = selectedSection === sec.name;
+                  const isFull = sec.occupied >= sec.capacity;
+                  const remaining = Math.max(0, sec.capacity - sec.occupied);
+                  const pct = Math.min(100, Math.round((sec.occupied / sec.capacity) * 100)) || 0;
+
+                  return (
+                    <div
+                      key={sec.id || sec.name}
+                      onClick={() => setSelectedSection(sec.name)}
+                      className={`track-card-selector ${isSelected ? 'selected' : ''} ${isFull ? 'is-full' : ''}`}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            background: isSelected
+                              ? (isFull ? '#fed7aa' : '#e0e7ff')
+                              : '#f1f5f9',
+                            color: isSelected
+                              ? (isFull ? '#ea580c' : '#4f46e5')
+                              : '#64748b',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <Layers size={18} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#0f172a' }}>
+                              {sec.name}
+                            </span>
+                            {isFull ? (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: 999,
+                                  background: '#fff7ed',
+                                  color: '#ea580c',
+                                  border: '1px solid #ffedd5',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                }}
+                              >
+                                <Clock size={11} />
+                                Full • Waitlist
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: 999,
+                                  background: '#f0fdf4',
+                                  color: '#16a34a',
+                                  border: '1px solid #dcfce7',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                }}
+                              >
+                                <Check size={11} />
+                                {remaining} seat{remaining === 1 ? '' : 's'} available
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
+                            <div style={{ flex: 1, height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: `${pct}%`,
+                                  background: isFull ? '#ea580c' : (pct > 75 ? '#f59e0b' : '#6366f1'),
+                                  borderRadius: 99,
+                                  transition: 'width 0.4s ease',
+                                }}
+                              />
+                            </div>
+                            <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>
+                              {sec.occupied}/{sec.capacity}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Selection Radio / Check Pill */}
+                      <div
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          border: isSelected
+                            ? `2px solid ${isFull ? '#ea580c' : '#4f46e5'}`
+                            : '2px solid #cbd5e1',
+                          background: isSelected
+                            ? (isFull ? '#ea580c' : '#4f46e5')
+                            : '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          flexShrink: 0,
+                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        }}
+                      >
+                        {isSelected && <Check size={13} strokeWidth={3} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div>
@@ -398,14 +498,15 @@ export const Register = () => {
                   placeholder="e.g. Alice Smith"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  className="input-focus-glow"
                   style={{
                     width: '100%',
                     paddingLeft: 42,
                     paddingRight: 14,
-                    paddingTop: 10,
-                    paddingBottom: 10,
+                    paddingTop: 11,
+                    paddingBottom: 11,
                     borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
+                    border: '1.5px solid #cbd5e1',
                     backgroundColor: '#ffffff',
                     fontSize: '0.9rem',
                     color: '#0f172a',
@@ -428,14 +529,15 @@ export const Register = () => {
                   placeholder="e.g. alice@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="input-focus-glow"
                   style={{
                     width: '100%',
                     paddingLeft: 42,
                     paddingRight: 14,
-                    paddingTop: 10,
-                    paddingBottom: 10,
+                    paddingTop: 11,
+                    paddingBottom: 11,
                     borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
+                    border: '1.5px solid #cbd5e1',
                     backgroundColor: '#ffffff',
                     fontSize: '0.9rem',
                     color: '#0f172a',
@@ -458,14 +560,15 @@ export const Register = () => {
                   placeholder="e.g. +1 555-0199"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="input-focus-glow"
                   style={{
                     width: '100%',
                     paddingLeft: 42,
                     paddingRight: 14,
-                    paddingTop: 10,
-                    paddingBottom: 10,
+                    paddingTop: 11,
+                    paddingBottom: 11,
                     borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
+                    border: '1.5px solid #cbd5e1',
                     backgroundColor: '#ffffff',
                     fontSize: '0.9rem',
                     color: '#0f172a',
@@ -503,11 +606,11 @@ export const Register = () => {
                 }}
               >
                 {submitting ? (
-                  <Spinner size={18} label="Processing in C++ Engine..." />
+                  <Spinner size={18} label="Processing Registration..." />
                 ) : isSectionFull ? (
                   <>
                     <Clock size={17} />
-                    <span>Join Circular FIFO Waiting List</span>
+                    <span>Join Priority Waiting List</span>
                   </>
                 ) : (
                   <>

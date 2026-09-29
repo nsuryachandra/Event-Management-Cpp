@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import Spinner from '../../components/Spinner';
 import Badge from '../../components/Badge';
+import VenueHeatmap from '../../components/VenueHeatmap';
 import { 
   Calendar, 
   MapPin, 
@@ -22,6 +23,7 @@ import {
 
 export const EventHome = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const eventId = parseInt(id) || 1;
 
   const [event, setEvent] = useState(null);
@@ -115,6 +117,34 @@ export const EventHome = () => {
           >
             <ArrowLeft size={14} /> Back to Events Catalog
           </Link>
+
+          {event.imageUrl && (
+            <div
+              style={{
+                width: '100%',
+                height: '280px',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                marginBottom: 28,
+                position: 'relative',
+                boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <img
+                src={event.imageUrl}
+                alt={event.title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+                onError={(e) => {
+                  e.currentTarget.parentElement.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
 
           <div
             style={{
@@ -352,6 +382,15 @@ export const EventHome = () => {
           </div>
         )}
 
+        {/* Interactive Architectural Venue Floor Heatmap */}
+        <VenueHeatmap 
+          sections={sections} 
+          title={`${event.title || 'Auditorium'} • Live Floor Heatmap`}
+          onSelectSection={(sec) => {
+            navigate(`/register?eventId=${eventId}&section=${encodeURIComponent(sec.name)}`);
+          }}
+        />
+
         {/* Available Places & Sessions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
@@ -391,6 +430,7 @@ export const EventHome = () => {
             return (
               <div
                 key={sec.id}
+                className="card-hover"
                 style={{
                   backgroundColor: '#ffffff',
                   borderRadius: '16px',
@@ -499,10 +539,10 @@ export const EventHome = () => {
           </div>
           <div>
             <h4 className="display-font" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e1b4b', marginBottom: 4 }}>
-              Deterministic Array-Based Circular FIFO Queue & Guaranteed No-Skip Rule
+              Fair Admissions Queue & Real-Time Capacity Management
             </h4>
             <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6 }}>
-              When a section reaches capacity limit, candidates enter the in-memory circular queue in strict arrival sequence. The C++ engine processes waiting candidates strictly from the front without skipping, guaranteeing unbiased mathematical fairness.
+              When a track reaches capacity, attendees enter the waiting queue in strict order of arrival. As seats become available, candidates are admitted in sequential order, guaranteeing fair and unbiased admissions.
             </p>
           </div>
         </div>

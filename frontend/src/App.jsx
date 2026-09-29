@@ -18,6 +18,7 @@ import Events from './pages/organizer/Events';
 import WaitingList from './pages/organizer/WaitingList';
 import Attendees from './pages/organizer/Attendees';
 import Resources from './pages/organizer/Resources';
+import Sections from './pages/organizer/Sections';
 
 // Public layout wrapper with Navbar & Footer
 function PublicLayout() {
@@ -50,6 +51,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="events" element={<Events />} />
           <Route path="waiting-list" element={<WaitingList />} />
+          <Route path="sections" element={<Sections />} />
           <Route path="attendees" element={<Attendees />} />
           <Route path="resources" element={<Resources />} />
         </Route>

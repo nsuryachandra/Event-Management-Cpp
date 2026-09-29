@@ -27,6 +27,12 @@ def init_db():
                 schema_sql = f.read()
             cursor.executescript(schema_sql)
             conn.commit()
+    else:
+        try:
+            cursor.execute("ALTER TABLE events ADD COLUMN imageUrl TEXT DEFAULT '';")
+            conn.commit()
+        except Exception:
+            pass
     conn.close()
 
 init_db()
@@ -98,6 +104,7 @@ def format_event(e):
         "venue": e["venue"],
         "category": e["category"],
         "status": e["status"],
+        "imageUrl": e["imageUrl"] if "imageUrl" in e.keys() and e["imageUrl"] else "",
         "totalCapacity": total_cap,
         "totalOccupied": total_occ,
         "tracksCount": tracks_count,
@@ -191,6 +198,7 @@ def create_event():
     date = body.get("date", "")
     venue = body.get("venue", "")
     category = body.get("category", "Technology")
+    imageUrl = body.get("imageUrl", "")
     capacity = body.get("capacity", 0) or body.get("quantity", 0) or 50
 
     if not title or not date or not venue:
@@ -199,8 +207,8 @@ def create_event():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO events (title, tagline, description, date, venue, category, status) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')",
-        (title, tagline, description, date, venue, category)
+        "INSERT INTO events (title, tagline, description, date, venue, category, status, imageUrl) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?)",
+        (title, tagline, description, date, venue, category, imageUrl)
     )
     event_id = cursor.lastrowid
     
@@ -255,10 +263,11 @@ def update_event(event_id):
     date = body.get("date", ev["date"])
     venue = body.get("venue", ev["venue"])
     category = body.get("category", ev["category"])
+    imageUrl = body.get("imageUrl", ev["imageUrl"] if "imageUrl" in ev.keys() else "")
 
     cursor.execute(
-        "UPDATE events SET title=?, tagline=?, description=?, date=?, venue=?, category=? WHERE id=?",
-        (title, tagline, description, date, venue, category, event_id)
+        "UPDATE events SET title=?, tagline=?, description=?, date=?, venue=?, category=?, imageUrl=? WHERE id=?",
+        (title, tagline, description, date, venue, category, imageUrl, event_id)
     )
     conn.commit()
 
@@ -317,6 +326,26 @@ def update_event(event_id):
         msg += f" Added seats automatically admitted {auto_admitted_count} waiting attendee(s): {', '.join(auto_admitted_names)}."
 
     return jsonify({"success": True, "message": msg, "data": format_event(updated_ev)})
+
+@app.route("/api/events/<int:event_id>", methods=["DELETE"])
+def delete_event(event_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+    ev = cursor.fetchone()
+    if not ev:
+        conn.close()
+        return jsonify({"success": False, "message": "Event not found."}), 404
+    title = ev["title"]
+    cursor.execute("DELETE FROM queue_state WHERE eventId = ?", (event_id,))
+    cursor.execute("DELETE FROM activities WHERE eventId = ?", (event_id,))
+    cursor.execute("DELETE FROM resources WHERE eventId = ?", (event_id,))
+    cursor.execute("DELETE FROM attendees WHERE eventId = ?", (event_id,))
+    cursor.execute("DELETE FROM sections WHERE eventId = ?", (event_id,))
+    cursor.execute("DELETE FROM events WHERE id = ?", (event_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": f"Event '{title}' removed successfully."})
 
 # ------------------------------------------------------------------------------
 # SECTIONS APIS
@@ -799,6 +828,18 @@ def admit_next():
     if not sec:
         conn.close()
         return jsonify({"success": False, "message": f"Section '{sec_name}' requested by {q_entry['name']} no longer exists."}), 400
+
+    open_seat = request.args.get("openSeat") in ["true", "1"]
+    if not open_seat and request.is_json:
+        data = request.get_json(silent=True) or {}
+        open_seat = bool(data.get("openSeat"))
+
+    if sec["occupied"] >= sec["capacity"] and open_seat:
+        cursor.execute("UPDATE sections SET capacity = occupied + 1 WHERE id = ?", (sec["id"],))
+        conn.commit()
+        cursor.execute("SELECT * FROM sections WHERE id = ?", (sec["id"],))
+        sec = cursor.fetchone()
+        log_activity(ev_id, f"Section capacity for '{sec_name}' automatically opened (+1 to {sec['capacity']}) to admit waiting candidate.")
 
     if sec["occupied"] < sec["capacity"]:
         cursor.execute("DELETE FROM queue_state WHERE position = ?", (q_entry["position"],))

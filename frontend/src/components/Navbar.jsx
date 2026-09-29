@@ -1,17 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Layers, Calendar, UserCheck, Shield, Sparkles, Activity, ArrowUpRight } from 'lucide-react';
-import { api } from '../api';
+import { Calendar, UserCheck, Shield, Sparkles, ArrowUpRight } from 'lucide-react';
 
 export const Navbar = () => {
   const location = useLocation();
-  const [engineOnline, setEngineOnline] = useState(true);
-
-  useEffect(() => {
-    api.getEvents()
-      .then(() => setEngineOnline(true))
-      .catch(() => setEngineOnline(false));
-  }, [location.pathname]);
 
   const isActive = (path) => location.pathname === path;
 
@@ -22,7 +14,7 @@ export const Navbar = () => {
         top: 0,
         zIndex: 50,
         height: 'var(--header-height)',
-        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        backgroundColor: 'rgba(255, 255, 255, 0.92)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
@@ -40,64 +32,82 @@ export const Navbar = () => {
           justifyContent: 'space-between',
         }}
       >
-        {/* Brand Logo with Glowing Gradient Emblem */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="group">
+        {/* Brand Logo with Official Project Logo & Highlighted EVENTORA */}
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none' }} className="group">
           <div
             style={{
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+              overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.16)',
+              border: '1.5px solid rgba(226, 232, 240, 0.9)',
+              backgroundColor: '#051917',
+              flexShrink: 0,
               transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             }}
           >
-            <Layers size={22} />
+            <img
+              src="/logo.jpg"
+              alt="Eventora Logo"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, lineHeight: 1 }}>
               <span
-                className="display-font"
                 style={{
+                  fontFamily: 'var(--font-display)',
                   fontWeight: 900,
-                  fontSize: '1.28rem',
-                  letterSpacing: '-0.03em',
-                  background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+                  fontSize: '1.42rem',
+                  letterSpacing: '0.04em',
+                  background: 'linear-gradient(135deg, #064e3b 0%, #047857 50%, #0d9488 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                EVENTORA
+                EVENT
               </span>
               <span
-                className="mono-font"
                 style={{
-                  fontSize: '0.62rem',
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #ec4899 100%)',
-                  color: '#ffffff',
-                  padding: '2px 8px',
-                  borderRadius: '999px',
-                  letterSpacing: '0.06em',
-                  boxShadow: '0 2px 6px rgba(236, 72, 153, 0.25)',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 900,
+                  fontSize: '1.42rem',
+                  letterSpacing: '0.04em',
+                  background: 'linear-gradient(135deg, #b45309 0%, #d97706 40%, #f59e0b 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
                 }}
               >
-                C++ PRO
+                ORA
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>
-              Crowd Admissions & Deterministic FIFO Queue
+            <div
+              style={{
+                fontSize: '0.68rem',
+                color: '#64748b',
+                fontWeight: 650,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                marginTop: 3,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              Crowd Admissions & Event Management
             </div>
           </div>
         </Link>
 
-        {/* Live Engine Status & Nav Links */}
+        {/* Nav Links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-
 
           {/* Navigation Links */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

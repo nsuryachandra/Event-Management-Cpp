@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api';
 import Badge from '../../components/Badge';
 import Spinner from '../../components/Spinner';
+import VenueHeatmap from '../../components/VenueHeatmap';
 import Modal from '../../components/Modal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
@@ -11,14 +12,10 @@ import {
   Edit3, 
   Trash2, 
   RefreshCw, 
-  PlusCircle, 
-  MinusCircle, 
   Layers, 
   CheckCircle2, 
-  Clock, 
   ShieldCheck,
-  UserCheck,
-  Sparkles
+  UserCheck
 } from 'lucide-react';
 
 export const Sections = () => {
@@ -48,6 +45,7 @@ export const Sections = () => {
 
   const loadSections = async () => {
     try {
+      setLoading(true);
       const res = await api.getSections(activeEventId);
       if (res.success && res.data) {
         setSections(res.data);
@@ -66,7 +64,7 @@ export const Sections = () => {
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     if (!newSectionName.trim()) {
-      showToast('Place / Area / Hall name is required', 'error');
+      showToast('Area / Hall name is required', 'error');
       return;
     }
     if (newSectionCapacity <= 0) {
@@ -83,7 +81,7 @@ export const Sections = () => {
       });
 
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || 'Track created successfully', 'success');
         setShowCreateModal(false);
         setNewSectionName('');
         setNewSectionCapacity(30);
@@ -92,7 +90,7 @@ export const Sections = () => {
         showToast(res.message, 'error');
       }
     } catch {
-      showToast('Failed to create custom area', 'error');
+      showToast('Failed to create area', 'error');
     } finally {
       setIsCreating(false);
     }
@@ -115,7 +113,7 @@ export const Sections = () => {
     try {
       const res = await api.updateSectionCapacity(sec.id, targetCapacity);
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || `Capacity increased to ${targetCapacity}!`, 'success');
         loadSections();
       } else {
         showToast(res.message, 'error');
@@ -132,7 +130,7 @@ export const Sections = () => {
     if (!editSection) return;
 
     if (!editName.trim()) {
-      showToast('Area / Place name cannot be empty', 'error');
+      showToast('Area name cannot be empty', 'error');
       return;
     }
 
@@ -148,7 +146,7 @@ export const Sections = () => {
         capacity: parseInt(editCapacity, 10),
       });
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || 'Area details updated', 'success');
         setEditSection(null);
         loadSections();
       } else {
@@ -167,7 +165,7 @@ export const Sections = () => {
     try {
       const res = await api.deleteSection(deleteTarget.id);
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || 'Section deleted', 'success');
         setDeleteTarget(null);
         loadSections();
       } else {
@@ -181,36 +179,60 @@ export const Sections = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: '1440px', margin: '0 auto' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start', 
+          flexWrap: 'wrap', 
+          gap: 16,
+          padding: '24px 28px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+        }}
+      >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span
               style={{
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                backgroundColor: 'var(--sapphire-light)',
-                color: 'var(--sapphire)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
                 padding: '2px 8px',
-                borderRadius: 'var(--radius-full)',
-                border: '1px solid var(--sapphire-border)',
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
+                borderRadius: '6px',
+                background: '#f1f5f9',
+                color: '#475569',
+                border: '1px solid #e2e8f0',
               }}
             >
-              {activeEvent?.title || 'Active Event'}
+              {activeEvent ? activeEvent.title : 'All Events'}
             </span>
           </div>
-          <h1 className="display-font" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--ink-primary)', letterSpacing: '-0.025em' }}>
-            Event Tracks & Dynamic Capacity Limits
+
+          <h1 
+            style={{ 
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.75rem', 
+              fontWeight: 700, 
+              color: '#0f172a', 
+              letterSpacing: '-0.025em',
+              lineHeight: 1.25,
+              margin: '0 0 6px 0',
+            }}
+          >
+            Seating & Floor Layout
           </h1>
-          <p style={{ color: 'var(--ink-muted)', fontSize: '0.88rem', marginTop: 2 }}>
-            Add custom tracks, set limits, and auto-admit the #1 FIFO waiting candidate when expanding capacity.
+
+          <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>
+            Manage room capacities, monitor real-time utilization heatmaps, and automatically admit waiting list attendees when expanding capacity.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             type="button"
             onClick={loadSections}
@@ -224,7 +246,7 @@ export const Sections = () => {
             onClick={() => setShowCreateModal(true)}
             className="btn btn-primary btn-sm"
           >
-            <Plus size={15} /> Add Custom Track
+            <Plus size={15} /> Add Track / Room
           </button>
         </div>
       </div>
@@ -233,37 +255,59 @@ export const Sections = () => {
       <div
         style={{
           padding: '16px 20px',
-          borderRadius: 'var(--radius-md)',
-          backgroundColor: 'var(--sapphire-light)',
-          border: '1px solid var(--sapphire-border)',
+          borderRadius: '12px',
+          backgroundColor: '#eef2ff',
+          border: '1px solid #c7d2fe',
           display: 'flex',
           alignItems: 'center',
           gap: 14,
         }}
       >
-        <ShieldCheck size={22} style={{ color: 'var(--sapphire)', flexShrink: 0 }} />
-        <div style={{ fontSize: '0.85rem', color: 'var(--ink-secondary)', lineHeight: 1.5 }}>
-          <strong>Automatic FIFO Queue Admission:</strong> When a section is full and you increase its capacity (+1 or more), the C++ engine immediately checks the FIFO queue and <strong>automatically admits the first candidate</strong> waiting for that track without skipping!
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '8px',
+            backgroundColor: '#4f46e5',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <ShieldCheck size={20} />
+        </div>
+        <div style={{ fontSize: '0.875rem', color: '#312e81', lineHeight: 1.5 }}>
+          <strong style={{ color: '#1e1b4b' }}>Strict FIFO Auto-Admission:</strong> When an area is at full capacity and you increase its seating limit, the engine automatically admits candidates from the front of the waiting queue for that track without manual re-registration.
         </div>
       </div>
 
+      {/* Interactive Venue Floor Heatmap */}
+      {!loading && sections.length > 0 && (
+        <VenueHeatmap 
+          sections={sections} 
+          title="Floor Layout & Real-Time Capacity Heatmap" 
+        />
+      )}
+
       {/* Sections Grid */}
       {loading ? (
-        <div style={{ padding: '80px 0', textAlign: 'center' }}>
-          <Spinner size={32} label="Loading event tracks and capacity meters..." />
+        <div style={{ padding: '60px 0', textAlign: 'center' }}>
+          <Spinner size={32} label="Loading session tracks..." />
         </div>
       ) : sections.length === 0 ? (
-        <div className="light-card" style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <Layers size={40} style={{ color: 'var(--ink-muted)', margin: '0 auto 12px' }} />
-          <h3 className="display-font" style={{ fontSize: '1.2rem', fontWeight: 700 }}>No Tracks Created Yet</h3>
-          <p style={{ color: 'var(--ink-muted)', fontSize: '0.85rem', marginTop: 4 }}>
-            Click "Add Custom Track" to configure session areas and capacity limits.
+        <div style={{ padding: '48px 20px', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px dashed #cbd5e1', color: '#64748b' }}>
+          <Layers size={36} style={{ color: '#4f46e5', margin: '0 auto 10px' }} />
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 600, color: '#0f172a' }}>No Session Areas Created</h3>
+          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: 4 }}>
+            Click "Add Track / Room" to configure seating limits and track zones.
           </p>
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
             className="btn btn-primary btn-sm"
-            style={{ marginTop: 16 }}
+            style={{ marginTop: 14 }}
           >
             <Plus size={14} /> Add First Track
           </button>
@@ -272,8 +316,8 @@ export const Sections = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-            gap: 24,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: 20,
           }}
         >
           {sections.map((sec) => {
@@ -284,69 +328,87 @@ export const Sections = () => {
             return (
               <div
                 key={sec.id}
-                className="card gradient-top-accent card-hover"
                 style={{
-                  padding: 24,
+                  padding: '22px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 18,
+                  gap: 16,
+                  borderRadius: '14px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
                 }}
+                className="card-hover"
               >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <h3 className="display-font" style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--ink-primary)' }}>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>
                       {sec.name}
                     </h3>
-                    <span className="mono-font" style={{ fontSize: '0.74rem', color: 'var(--ink-muted)', fontWeight: 600 }}>
-                      AREA / HALL #{sec.id}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#64748b' }}>
+                      Track #{sec.id}
                     </span>
                   </div>
                   <Badge
                     status={isFull ? 'FULL' : 'OPEN'}
-                    label={isFull ? 'Queueing (FIFO)' : `${sec.available} Seats Open`}
+                    label={isFull ? 'Full (Queueing)' : `${sec.available} Seats Available`}
                   />
                 </div>
 
                 {/* Progress Bar & Seating Count */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem', fontWeight: 600, marginBottom: 8 }}>
-                    <span style={{ color: 'var(--ink-secondary)' }}>
-                      <strong style={{ color: 'var(--ink-primary)' }}>{sec.occupied}</strong> / {sec.capacity} Admitted
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: 6 }}>
+                    <span style={{ color: '#64748b' }}>
+                      Occupied: <strong style={{ color: '#0f172a' }}>{sec.occupied}</strong> / {sec.capacity} seats
                     </span>
-                    <span className="mono-font" style={{ color: isFull ? '#dc2626' : '#059669', fontWeight: 800 }}>
-                      {occPct}% Capacity
+                    <span style={{ fontFamily: 'var(--font-mono)', color: isFull ? '#e11d48' : '#059669', fontWeight: 600 }}>
+                      {occPct}%
                     </span>
                   </div>
-                  <div style={{ width: '100%', height: 8, backgroundColor: '#f1f5f9', borderRadius: 'var(--radius-full)', overflow: 'hidden', border: '1px solid var(--border-main)' }}>
+                  <div style={{ width: '100%', height: 6, backgroundColor: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
                     <div
                       style={{
                         width: `${Math.min(occPct, 100)}%`,
                         height: '100%',
-                        background: isFull ? 'var(--grad-ruby)' : occPct >= 75 ? 'var(--grad-sunset)' : 'var(--grad-emerald)',
-                        borderRadius: 'var(--radius-full)',
-                        transition: 'width 0.4s ease',
+                        backgroundColor: isFull ? '#e11d48' : occPct >= 75 ? '#f59e0b' : '#10b981',
+                        borderRadius: '999px',
+                        transition: 'width 0.3s ease',
                       }}
                     />
                   </div>
                 </div>
 
-                {/* Capacity Stepper & Quick Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                {/* Capacity Quick Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button
                       type="button"
-                      title="Quick Expand Capacity (+1 Seat & Auto-Admit Front of Queue)"
+                      title="Add 1 seat and auto-admit next in waitlist"
                       disabled={isBusy}
                       onClick={() => handleQuickExpand(sec, 1)}
-                      className="btn btn-emerald btn-sm"
+                      className="btn btn-secondary btn-sm"
                       style={{
-                        fontWeight: 700,
-                        fontSize: '0.76rem',
-                        padding: '6px 10px',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                        padding: '4px 10px',
                       }}
                     >
-                      <PlusCircle size={14} /> +1 Seat (Auto-Admit FIFO)
+                      +1 Seat
+                    </button>
+                    <button
+                      type="button"
+                      title="Add 5 seats and auto-admit next in waitlist"
+                      disabled={isBusy}
+                      onClick={() => handleQuickExpand(sec, 5)}
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                        padding: '4px 10px',
+                      }}
+                    >
+                      +5 Seats
                     </button>
                   </div>
 
@@ -355,17 +417,18 @@ export const Sections = () => {
                       type="button"
                       onClick={() => openEditModal(sec)}
                       className="btn btn-secondary btn-sm"
-                      title="Edit Place Name & Seating Capacity Limit"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      title="Edit Track"
                     >
-                      <Edit3 size={13} /> Edit Place
+                      <Edit3 size={13} /> Edit
                     </button>
                     <button
                       type="button"
                       disabled={sec.occupied > 0}
                       onClick={() => setDeleteTarget(sec)}
                       className="btn btn-secondary btn-sm"
-                      style={{ color: '#dc2626' }}
-                      title={sec.occupied > 0 ? 'Cannot delete area with active attendees' : 'Delete Area'}
+                      style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#dc2626' }}
+                      title={sec.occupied > 0 ? 'Cannot delete track with active attendees' : 'Delete Track'}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -377,29 +440,33 @@ export const Sections = () => {
         </div>
       )}
 
-      {/* Create Custom Area / Hall Modal */}
+      {/* Create Custom Track Modal */}
       {showCreateModal && (
         <Modal
           isOpen={true}
           onClose={() => setShowCreateModal(false)}
-          title="Add Custom Event Place / Hall"
-          subtitle="Configure a custom seating capacity limit for this session area."
+          title="Add Session Track / Room"
+          subtitle="Configure a seating capacity limit for this session area."
         >
-          <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label htmlFor="track-name">Place / Hall / Room Name *</label>
+              <label htmlFor="track-name" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Room / Track Name *
+              </label>
               <input
                 id="track-name"
                 type="text"
                 value={newSectionName}
                 onChange={(e) => setNewSectionName(e.target.value)}
-                placeholder="e.g. Hall A - Keynote Arena, Workshop Lab 2, VIP Lounge"
+                placeholder="e.g. Main Auditorium, Workshop Room 2"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="track-cap">Seating Capacity Limit *</label>
+              <label htmlFor="track-cap" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Seating Capacity *
+              </label>
               <input
                 id="track-cap"
                 type="number"
@@ -411,20 +478,20 @@ export const Sections = () => {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isCreating}
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary"
               >
-                {isCreating ? 'Creating Area...' : 'Create Place / Area'}
+                {isCreating ? 'Creating...' : 'Create Track'}
               </button>
             </div>
           </form>
@@ -437,24 +504,25 @@ export const Sections = () => {
           isOpen={true}
           onClose={() => setEditSection(null)}
           title={`Edit Area: ${editSection.name}`}
-          subtitle={`Current capacity: ${editSection.capacity} seats | Currently occupied: ${editSection.occupied} seats`}
+          subtitle={`Current capacity: ${editSection.capacity} | Occupied: ${editSection.occupied}`}
         >
-          <form onSubmit={handleUpdateCapacitySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleUpdateCapacitySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label htmlFor="edit-place-name">Place / Hall / Room Name *</label>
+              <label htmlFor="edit-place-name" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Track / Room Name *
+              </label>
               <input
                 id="edit-place-name"
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                placeholder="e.g. Hall A - Main Stage"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="new-cap">
-                Seating Capacity Limit (Minimum: {editSection.occupied}) *
+              <label htmlFor="new-cap" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Seating Capacity (Minimum: {editSection.occupied}) *
               </label>
               <input
                 id="new-cap"
@@ -469,32 +537,32 @@ export const Sections = () => {
 
             <div
               style={{
-                padding: '14px 16px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(124, 58, 237, 0.1) 100%)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                fontSize: '0.84rem',
-                color: 'var(--ink-secondary)',
-                lineHeight: 1.5,
+                padding: '10px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#eef2ff',
+                border: '1px solid #c7d2fe',
+                fontSize: '0.8125rem',
+                color: '#3730a3',
+                lineHeight: 1.45,
               }}
             >
-              <strong>FIFO Auto-Admit Guarantee:</strong> If you increase this limit, candidates waiting at the front of the FIFO queue for this place will be <strong>automatically admitted</strong> in exact chronological arrival order!
+              Increasing this capacity will automatically admit candidates from the front of the FIFO waitlist.
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
                 type="button"
                 onClick={() => setEditSection(null)}
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isUpdating}
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary"
               >
-                {isUpdating ? 'Saving...' : 'Save Place & Capacity'}
+                {isUpdating ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </form>

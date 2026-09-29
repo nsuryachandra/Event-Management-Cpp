@@ -163,6 +163,15 @@ bool addEventToArray(Event arr[], int &count, const Event& item) {
     return true;
 }
 
+bool removeEventFromArray(Event arr[], int &count, int index) {
+    if (index < 0 || index >= count) return false;
+    for (int i = index; i < count - 1; ++i) {
+        arr[i] = arr[i + 1];
+    }
+    count--;
+    return true;
+}
+
 bool addAttendeeToArray(Attendee arr[], int &count, const Attendee& person) {
     if (count >= MAX_ATTENDEES) return false;
     arr[count] = person;
@@ -388,18 +397,28 @@ bool processRegistration(int eventId, const std::string& name, const std::string
     }
 }
 
-bool admitNextAttendee(int eventId, Attendee& outAdmitted, std::string& outMessage) {
+bool admitNextAttendee(int eventId, Attendee& outAdmitted, std::string& outMessage, bool openSeatIfFull = false) {
     if (isQueueEmpty()) {
         outMessage = "The waiting list is currently empty.";
         return false;
     }
 
-    Attendee frontPerson;
-    queueFrontItem(frontPerson);
-
-    if (eventId > 0 && frontPerson.eventId != eventId) {
-        outMessage = "Next attendee in global FIFO belongs to event #" + std::to_string(frontPerson.eventId) + ".";
+    int matchRelativeIdx = -1;
+    for (int i = 0; i < queueCount; ++i) {
+        int qIdx = (queueFront + i) % MAX_QUEUE;
+        if (eventId == 0 || waitingQueue[qIdx].eventId == eventId) {
+            matchRelativeIdx = i;
+            break;
+        }
     }
+
+    if (matchRelativeIdx == -1) {
+        outMessage = (eventId > 0) ? "No attendees in waiting queue for this event." : "The waiting list is currently empty.";
+        return false;
+    }
+
+    int targetPos = (queueFront + matchRelativeIdx) % MAX_QUEUE;
+    Attendee frontPerson = waitingQueue[targetPos];
 
     int secIdx = findSectionByName(sections, sectionCount, frontPerson.eventId, frontPerson.section);
     if (secIdx == -1) {
@@ -407,9 +426,31 @@ bool admitNextAttendee(int eventId, Attendee& outAdmitted, std::string& outMessa
         return false;
     }
 
+    if (sections[secIdx].occupied >= sections[secIdx].capacity && openSeatIfFull) {
+        sections[secIdx].capacity = sections[secIdx].occupied + 1;
+        dbUpdateSection(sections[secIdx]);
+        logActivity(activities, activityCount, frontPerson.eventId, 
+                    "Section capacity for '" + sections[secIdx].name + "' automatically opened (+1 to " + 
+                    std::to_string(sections[secIdx].capacity) + ") to admit waiting candidate.");
+    }
+
     if (sections[secIdx].occupied < sections[secIdx].capacity) {
-        Attendee dequeuedPerson;
-        dequeue(dequeuedPerson);
+        Attendee dequeuedPerson = waitingQueue[targetPos];
+
+        // Shift remaining queue elements to maintain circular array FIFO order
+        for (int j = matchRelativeIdx; j < queueCount - 1; ++j) {
+            int cur = (queueFront + j) % MAX_QUEUE;
+            int nxt = (queueFront + j + 1) % MAX_QUEUE;
+            waitingQueue[cur] = waitingQueue[nxt];
+        }
+        queueCount--;
+        if (queueCount == 0) {
+            queueFront = 0;
+            queueRear = -1;
+        } else {
+            queueRear = (queueFront + queueCount - 1) % MAX_QUEUE;
+        }
+        dbSaveQueue(waitingQueue, queueFront, queueCount, MAX_QUEUE);
 
         int attIdx = findAttendeeById(attendees, attendeeCount, dequeuedPerson.id);
         if (attIdx != -1) {
@@ -535,6 +576,73 @@ bool updateAttendeeDetails(int attendeeId, const std::string& name, const std::s
     return true;
 }
 
+bool deleteEventCascade(int eventId, std::string& outMessage) {
+    int evIdx = findEventById(events, eventCount, eventId);
+    if (evIdx == -1) {
+        outMessage = "Event not found.";
+        return false;
+    }
+
+    std::string title = events[evIdx].title;
+
+    // 1. Remove waiting attendees for this event from circular FIFO queue
+    Attendee tempQueue[MAX_QUEUE];
+    int tempCount = 0;
+    for (int i = 0; i < queueCount; ++i) {
+        int qIdx = (queueFront + i) % MAX_QUEUE;
+        if (waitingQueue[qIdx].eventId != eventId) {
+            tempQueue[tempCount++] = waitingQueue[qIdx];
+        }
+    }
+    queueCount = tempCount;
+    queueFront = 0;
+    queueRear = (queueCount > 0) ? queueCount - 1 : -1;
+    for (int i = 0; i < queueCount; ++i) {
+        waitingQueue[i] = tempQueue[i];
+    }
+    dbSaveQueue(waitingQueue, queueFront, queueCount, MAX_QUEUE);
+
+    // 2. Remove attendees for this event from 1D attendees array
+    for (int i = attendeeCount - 1; i >= 0; --i) {
+        if (attendees[i].eventId == eventId) {
+            removeAttendeeFromArray(attendees, attendeeCount, i);
+        }
+    }
+
+    // 3. Remove sections for this event from 1D sections array
+    for (int i = sectionCount - 1; i >= 0; --i) {
+        if (sections[i].eventId == eventId) {
+            removeSectionFromArray(sections, sectionCount, i);
+        }
+    }
+
+    // 4. Remove resources for this event from 1D resources array
+    for (int i = resourceCount - 1; i >= 0; --i) {
+        if (resources[i].eventId == eventId) {
+            removeResourceFromArray(resources, resourceCount, i);
+        }
+    }
+
+    // 5. Remove activities for this event from 1D activities array
+    for (int i = activityCount - 1; i >= 0; --i) {
+        if (activities[i].eventId == eventId) {
+            for (int j = i; j < activityCount - 1; ++j) {
+                activities[j] = activities[j + 1];
+            }
+            activityCount--;
+        }
+    }
+
+    // 6. Remove event from 1D events array
+    removeEventFromArray(events, eventCount, evIdx);
+
+    // 7. Persist deletion in SQLite database
+    dbDeleteEvent(eventId);
+
+    outMessage = "Event '" + title + "' and all associated tracks, registrations, and resources have been successfully removed.";
+    return true;
+}
+
 // ==============================================================================
 // 7. JSON / API SERIALIZATION HELPERS
 // ==============================================================================
@@ -549,6 +657,7 @@ json eventToJson(const Event& e) {
     j["venue"] = e.venue;
     j["category"] = e.category;
     j["status"] = e.status;
+    j["imageUrl"] = e.imageUrl;
 
     int cap = 0;
     int occ = 0;
@@ -692,6 +801,7 @@ void registerRoutes(httplib::Server& svr) {
             std::string date = body.value("date", "");
             std::string venue = body.value("venue", "");
             std::string category = body.value("category", "General");
+            std::string imageUrl = body.value("imageUrl", "");
             int capacity = body.value("capacity", 0);
             if (capacity <= 0 && body.contains("quantity")) {
                 capacity = body.value("quantity", 0);
@@ -711,6 +821,7 @@ void registerRoutes(httplib::Server& svr) {
             e.venue = venue;
             e.category = category;
             e.status = "ACTIVE";
+            e.imageUrl = imageUrl;
 
             if (!dbInsertEvent(e)) {
                 sendJsonResponse(res, 500, false, "Database error saving event.");
@@ -795,6 +906,7 @@ void registerRoutes(httplib::Server& svr) {
             std::string date = body.value("date", events[idx].date);
             std::string venue = body.value("venue", events[idx].venue);
             std::string category = body.value("category", events[idx].category);
+            std::string imageUrl = body.value("imageUrl", events[idx].imageUrl);
 
             events[idx].title = title;
             events[idx].tagline = tagline;
@@ -802,6 +914,7 @@ void registerRoutes(httplib::Server& svr) {
             events[idx].date = date;
             events[idx].venue = venue;
             events[idx].category = category;
+            events[idx].imageUrl = imageUrl;
             dbUpdateEvent(events[idx]);
 
             int autoAdmittedCount = 0;
@@ -898,6 +1011,17 @@ void registerRoutes(httplib::Server& svr) {
         } catch (...) {
             sendJsonResponse(res, 400, false, "Invalid JSON in update event request.");
         }
+    });
+
+    // DELETE /api/events/:id
+    svr.Delete(R"(/api/events/(\d+))", [](const httplib::Request& req, httplib::Response& res) {
+        int id = std::stoi(req.matches[1]);
+        std::string msg;
+        if (!deleteEventCascade(id, msg)) {
+            sendJsonResponse(res, 404, false, msg);
+            return;
+        }
+        sendJsonResponse(res, 200, true, msg);
     });
 
     // --------------------------------------------------------------------------
@@ -1203,14 +1327,19 @@ void registerRoutes(httplib::Server& svr) {
     svr.Put(R"(/api/attendees/(\d+))", [](const httplib::Request& req, httplib::Response& res) {
         int id = std::stoi(req.matches[1]);
         try {
+            int idx = findAttendeeById(attendees, attendeeCount, id);
+            if (idx == -1) {
+                sendJsonResponse(res, 404, false, "Attendee not found.");
+                return;
+            }
+
             auto body = json::parse(req.body);
-            std::string name = body.value("name", "");
-            std::string email = body.value("email", "");
-            std::string phone = body.value("phone", "");
+            std::string name = body.value("name", attendees[idx].name);
+            std::string email = body.value("email", attendees[idx].email);
+            std::string phone = body.value("phone", attendees[idx].phone);
 
             std::string msg;
             if (updateAttendeeDetails(id, name, email, phone, msg)) {
-                int idx = findAttendeeById(attendees, attendeeCount, id);
                 sendJsonResponse(res, 200, true, msg, attendeeToJson(attendees[idx]));
             } else {
                 sendJsonResponse(res, 400, false, msg);
@@ -1277,9 +1406,17 @@ void registerRoutes(httplib::Server& svr) {
         queueData["items"] = queueList;
         queueData["eventQueueCount"] = matchedCount;
 
-        if (!isQueueEmpty()) {
-            Attendee frontPerson;
-            queueFrontItem(frontPerson);
+        int firstMatchIdx = -1;
+        for (int i = 0; i < queueCount; ++i) {
+            int idx = (queueFront + i) % MAX_QUEUE;
+            if (eventId == 0 || waitingQueue[idx].eventId == eventId) {
+                firstMatchIdx = idx;
+                break;
+            }
+        }
+
+        if (firstMatchIdx != -1) {
+            Attendee frontPerson = waitingQueue[firstMatchIdx];
             json fJson = attendeeToJson(frontPerson);
             fJson["waitingPosition"] = 1;
             int secIdx = findSectionByName(sections, sectionCount, frontPerson.eventId, frontPerson.section);
@@ -1298,9 +1435,30 @@ void registerRoutes(httplib::Server& svr) {
     // POST /api/queue/admit-next
     svr.Post("/api/queue/admit-next", [](const httplib::Request& req, httplib::Response& res) {
         int eventId = req.has_param("eventId") ? std::stoi(req.get_param_value("eventId")) : 0;
+        bool openSeat = false;
+        if (req.has_param("openSeat")) {
+            std::string osVal = req.get_param_value("openSeat");
+            if (osVal == "true" || osVal == "1") openSeat = true;
+        }
+        if (!openSeat && !req.body.empty()) {
+            try {
+                auto body = json::parse(req.body);
+                if (body.contains("openSeat")) {
+                    if (body["openSeat"].is_boolean()) {
+                        openSeat = body["openSeat"].get<bool>();
+                    } else if (body["openSeat"].is_number()) {
+                        openSeat = (body["openSeat"].get<int>() != 0);
+                    } else if (body["openSeat"].is_string()) {
+                        std::string s = body["openSeat"].get<std::string>();
+                        openSeat = (s == "true" || s == "1");
+                    }
+                }
+            } catch (...) {}
+        }
+
         Attendee admitted;
         std::string msg;
-        if (admitNextAttendee(eventId, admitted, msg)) {
+        if (admitNextAttendee(eventId, admitted, msg, openSeat)) {
             sendJsonResponse(res, 200, true, msg, attendeeToJson(admitted));
         } else {
             sendJsonResponse(res, 400, false, msg);
@@ -1356,9 +1514,17 @@ void registerRoutes(httplib::Server& svr) {
         queueSnapshot["queueCount"] = queueCount;
         queueSnapshot["isQueueEmpty"] = isQueueEmpty();
 
-        if (!isQueueEmpty()) {
-            Attendee frontPerson;
-            queueFrontItem(frontPerson);
+        int firstMatchIdx = -1;
+        for (int i = 0; i < queueCount; ++i) {
+            int idx = (queueFront + i) % MAX_QUEUE;
+            if (eventId == 0 || waitingQueue[idx].eventId == eventId) {
+                firstMatchIdx = idx;
+                break;
+            }
+        }
+
+        if (firstMatchIdx != -1) {
+            Attendee frontPerson = waitingQueue[firstMatchIdx];
             queueSnapshot["frontAttendee"] = attendeeToJson(frontPerson);
 
             int secIdx = findSectionByName(sections, sectionCount, frontPerson.eventId, frontPerson.section);
@@ -1368,6 +1534,7 @@ void registerRoutes(httplib::Server& svr) {
         } else {
             queueSnapshot["frontAttendee"] = nullptr;
             queueSnapshot["canAdmitFront"] = false;
+            queueSnapshot["frontSectionAvailable"] = 0;
         }
 
         json topQueue = json::array();

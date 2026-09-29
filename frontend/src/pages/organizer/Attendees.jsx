@@ -10,10 +10,33 @@ import {
   Users, 
   Search, 
   Edit, 
-  UserX, 
   Trash2, 
-  RefreshCw 
+  RefreshCw,
+  UserCheck,
+  Clock,
+  Filter,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
+
+const AVATAR_COLORS = [
+  '#4f46e5',
+  '#0284c7',
+  '#059669',
+  '#d97706',
+  '#e11d48',
+  '#7c3aed',
+];
+
+const getInitials = (name = '') => {
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return (name[0] || 'A').toUpperCase();
+};
+
+const getAvatarColor = (id = 0) => {
+  return AVATAR_COLORS[id % AVATAR_COLORS.length];
+};
 
 export const Attendees = () => {
   const { activeEventId, activeEvent } = useOutletContext();
@@ -42,6 +65,7 @@ export const Attendees = () => {
 
   const loadData = async () => {
     try {
+      setLoading(true);
       const [attRes, secRes] = await Promise.all([
         api.getAttendees({
           eventId: activeEventId,
@@ -72,7 +96,7 @@ export const Attendees = () => {
 
   const openEditModal = (att) => {
     if (att.status === 'WAITING') {
-      showToast('Waiting attendees cannot be edited while in FIFO queue to protect queue integrity.', 'error');
+      showToast('Waiting attendees cannot be edited while in queue to preserve queue integrity.', 'error');
       return;
     }
     setEditAttendee(att);
@@ -94,7 +118,7 @@ export const Attendees = () => {
       });
 
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || 'Attendee details updated', 'success');
         setEditAttendee(null);
         loadData();
       } else {
@@ -113,7 +137,7 @@ export const Attendees = () => {
     try {
       const res = await api.cancelAttendee(cancelTarget.id);
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || 'Registration cancelled and seat released', 'success');
         setCancelTarget(null);
         loadData();
       } else {
@@ -132,7 +156,7 @@ export const Attendees = () => {
     try {
       const res = await api.deleteAttendee(deleteTarget.id);
       if (res.success) {
-        showToast(res.message, 'success');
+        showToast(res.message || 'Attendee removed successfully', 'success');
         setDeleteTarget(null);
         loadData();
       } else {
@@ -145,16 +169,63 @@ export const Attendees = () => {
     }
   };
 
+  // Status Counts
+  const totalCount = attendees.length;
+  const admittedCount = attendees.filter((a) => a.status === 'ADMITTED').length;
+  const waitingCount = attendees.filter((a) => a.status === 'WAITING').length;
+  const cancelledCount = attendees.filter((a) => a.status === 'CANCELLED').length;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: '1440px', margin: '0 auto' }}>
+      {/* Header */}
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start', 
+          flexWrap: 'wrap', 
+          gap: 16,
+          padding: '24px 28px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+        }}
+      >
         <div>
-          <h1 className="display-font" style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--ink-primary)' }}>
-            Attendee Directory
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: '#f1f5f9',
+                color: '#475569',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              {activeEvent ? activeEvent.title : 'All Events'}
+            </span>
+          </div>
+
+          <h1 
+            style={{ 
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.75rem', 
+              fontWeight: 700, 
+              color: '#0f172a', 
+              letterSpacing: '-0.025em',
+              lineHeight: 1.25,
+              margin: '0 0 6px 0',
+            }}
+          >
+            Attendee Roster
           </h1>
-          <p style={{ color: 'var(--ink-muted)', fontSize: '0.9rem', marginTop: 2 }}>
-            {activeEvent ? `Managing attendees for ${activeEvent.title}` : 'Linear array storage & search.'}
+
+          <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>
+            Manage registrations, view queue positions, update contact info, or release reserved seating.
           </p>
         </div>
 
@@ -162,54 +233,100 @@ export const Attendees = () => {
           onClick={loadData}
           disabled={loading}
           className="btn btn-secondary btn-sm"
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
         </button>
       </div>
 
+      {/* Stats Summary Bar */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 14,
+        }}
+      >
+        <div style={{ padding: '14px 18px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Total Registered</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{totalCount}</div>
+        </div>
+
+        <div style={{ padding: '14px 18px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>Admitted & Confirmed</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#059669', marginTop: 2 }}>{admittedCount}</div>
+        </div>
+
+        <div style={{ padding: '14px 18px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 600 }}>In FIFO Waitlist</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#d97706', marginTop: 2 }}>{waitingCount}</div>
+        </div>
+
+        <div style={{ padding: '14px 18px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Cancelled</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#64748b', marginTop: 2 }}>{cancelledCount}</div>
+        </div>
+      </div>
+
       {/* Filter and Search Bar */}
-      <div className="card gradient-top-accent" style={{ padding: '22px 26px' }}>
-        <form
-          onSubmit={handleSearchSubmit}
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 16,
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 10, flex: 1, minWidth: '260px' }}>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, email, or EVT-ID..."
-              style={{ flex: 1 }}
-            />
-            <button type="submit" className="btn btn-primary btn-sm">
-              <Search size={16} /> Search
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ minWidth: '140px' }}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '14px 18px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        {/* Status Filter Tabs */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { key: 'ALL', label: 'All Attendees' },
+            { key: 'ADMITTED', label: 'Admitted' },
+            { key: 'WAITING', label: 'Waitlist' },
+            { key: 'CANCELLED', label: 'Cancelled' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setStatusFilter(tab.key)}
+              className="filter-pill-btn"
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.8125rem',
+                fontWeight: statusFilter === tab.key ? 700 : 550,
+                backgroundColor: statusFilter === tab.key ? '#eef2ff' : '#ffffff',
+                color: statusFilter === tab.key ? '#4f46e5' : '#475569',
+                border: statusFilter === tab.key ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                cursor: 'pointer',
+                boxShadow: statusFilter === tab.key ? '0 2px 6px rgba(79, 70, 229, 0.15)' : 'none',
+              }}
             >
-              <option value="ALL">All Statuses</option>
-              <option value="ADMITTED">Admitted</option>
-              <option value="WAITING">Waiting (FIFO)</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
+        {/* Section Filter & Search */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {sections.length > 0 && (
             <select
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
-              style={{ minWidth: '160px' }}
+              className="input-focus-glow"
+              style={{
+                fontSize: '0.8125rem',
+                padding: '7px 12px',
+                borderRadius: '8px',
+                border: '1.5px solid #cbd5e1',
+                width: 'auto',
+                fontWeight: 600,
+                outline: 'none',
+              }}
             >
               <option value="ALL">All Sections</option>
               {sections.map((s) => (
@@ -218,190 +335,214 @@ export const Attendees = () => {
                 </option>
               ))}
             </select>
-          </div>
-        </form>
+          )}
+
+          <form onSubmit={handleSearchSubmit} style={{ position: 'relative', width: '250px' }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or email..."
+              className="input-focus-glow"
+              style={{
+                paddingLeft: '34px',
+                paddingRight: '12px',
+                paddingTop: '7px',
+                paddingBottom: '7px',
+                fontSize: '0.8125rem',
+                borderRadius: '8px',
+                border: '1.5px solid #cbd5e1',
+                outline: 'none',
+                width: '100%',
+              }}
+            />
+          </form>
+        </div>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <Spinner size={36} label="Loading attendee records..." />
-      ) : attendees.length === 0 ? (
-        <div
-          className="card"
-          style={{
-            padding: '48px 20px',
-            textAlign: 'center',
-            color: 'var(--ink-muted)',
-          }}
-        >
-          <Users size={36} style={{ color: '#4f46e5', margin: '0 auto 12px' }} />
-          <h3 className="display-font" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--ink-primary)', marginBottom: 4 }}>
-            No Attendees Found
-          </h3>
-          <p style={{ fontSize: '0.88rem', color: 'var(--ink-muted)' }}>
-            No records matched your search or filter in this event.
-          </p>
-        </div>
-      ) : (
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Registration ID</th>
-                <th>Attendee Name</th>
-                <th>Contact</th>
-                <th>Track / Section</th>
-                <th>Status</th>
-                <th>Registered At</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendees.map((att) => (
-                <tr key={att.id}>
-                  <td>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>
-                      {att.registrationId}
-                    </span>
-                  </td>
-                  <td>
-                    <strong style={{ color: 'var(--text-main)' }}>{att.name}</strong>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-sub)' }}>{att.email}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{att.phone}</div>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.88rem' }}>
-                      {att.section}
-                    </span>
-                  </td>
-                  <td>
-                    <Badge status={att.status} />
-                    {att.status === 'WAITING' && att.waitingPosition && (
-                      <span style={{ fontSize: '0.72rem', color: 'var(--warning-text)', fontWeight: 700, marginLeft: 6, fontFamily: 'var(--font-mono)' }}>
-                        #{att.waitingPosition}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {att.registeredAt}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                      <button
-                        onClick={() => openEditModal(att)}
-                        disabled={att.status === 'WAITING'}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '6px 10px', fontSize: '0.78rem' }}
-                        title={att.status === 'WAITING' ? 'Waiting attendees cannot be edited' : 'Edit details'}
-                      >
-                        <Edit size={13} /> Edit
-                      </button>
-
-                      {att.status === 'ADMITTED' && (
-                        <button
-                          onClick={() => setCancelTarget(att)}
-                          className="btn btn-danger btn-sm"
-                          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
-                          title="Cancel admission"
+      {/* Attendees Table */}
+      <div 
+        style={{ 
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+          overflow: 'hidden',
+        }}
+      >
+        {loading ? (
+          <div style={{ padding: '40px', display: 'flex', justifyContent: 'center' }}>
+            <Spinner size={32} label="Loading attendees..." />
+          </div>
+        ) : attendees.length === 0 ? (
+          <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '1rem', marginBottom: 4 }}>
+              No attendees found
+            </div>
+            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+              {search || statusFilter !== 'ALL' || sectionFilter !== 'ALL'
+                ? 'Try resetting the filters or clearing the search.'
+                : 'No attendees have registered for this event yet.'}
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Attendee</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Contact</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Section / Hall</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Status</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Registered At</th>
+                  <th style={{ padding: '12px 18px', textAlign: 'right', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendees.map((att) => (
+                  <tr key={att.id} className="table-row-hover" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '14px 18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '10px',
+                            backgroundColor: getAvatarColor(att.id),
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 600,
+                            fontSize: '0.8125rem',
+                            flexShrink: 0,
+                          }}
                         >
-                          <UserX size={13} /> Cancel
-                        </button>
-                      )}
+                          {getInitials(att.name)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{att.name}</div>
+                          <span 
+                            style={{ 
+                              fontFamily: 'var(--font-mono)', 
+                              fontSize: '0.6875rem', 
+                              color: '#64748b', 
+                            }}
+                          >
+                            #EVT-{att.id + 1000}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
 
-                      {att.status !== 'WAITING' ? (
+                    <td style={{ padding: '14px 18px', color: '#334155', fontSize: '0.8125rem' }}>
+                      <div>{att.email}</div>
+                      <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{att.phone}</span>
+                    </td>
+
+                    <td style={{ padding: '14px 18px', color: '#0f172a', fontWeight: 500, fontSize: '0.8125rem' }}>
+                      {att.section || 'General Admission'}
+                    </td>
+
+                    <td style={{ padding: '14px 18px' }}>
+                      <Badge 
+                        status={att.status} 
+                        label={att.status === 'WAITING' ? `Waiting #${att.waitingPosition}` : att.status} 
+                        size="sm" 
+                      />
+                    </td>
+
+                    <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '0.8125rem' }}>
+                      {att.registeredAt}
+                    </td>
+
+                    <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                        {att.status === 'ADMITTED' && (
+                          <button
+                            onClick={() => openEditModal(att)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                            title="Edit details"
+                          >
+                            <Edit size={12} />
+                          </button>
+                        )}
+                        {att.status === 'ADMITTED' && (
+                          <button
+                            onClick={() => setCancelTarget(att)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#d97706' }}
+                            title="Cancel Pass & Release Seat"
+                          >
+                            Cancel
+                          </button>
+                        )}
                         <button
                           onClick={() => setDeleteTarget(att)}
                           className="btn btn-secondary btn-sm"
-                          style={{ padding: '6px 8px', color: '#dc2626' }}
-                          title="Delete attendee record"
+                          style={{ padding: '3px 6px', fontSize: '0.75rem', color: '#dc2626' }}
+                          title="Remove Permanently"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={12} />
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => showToast('Waiting attendees are protected in FIFO queue and cannot be removed directly.', 'error')}
-                          className="btn btn-secondary btn-sm"
-                          style={{ padding: '6px 8px', opacity: 0.35, cursor: 'not-allowed' }}
-                          title="Protected in FIFO queue"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* Edit Modal */}
+      {/* Edit Attendee Modal */}
       {editAttendee && (
         <Modal
           isOpen={true}
           onClose={() => setEditAttendee(null)}
-          title={`Edit Attendee: ${editAttendee.name}`}
-          subtitle={`ID: ${editAttendee.registrationId} • Section: ${editAttendee.section}`}
+          title="Edit Attendee Details"
+          subtitle={`Update contact details for ${editAttendee.name}.`}
         >
-          <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                Full Name
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Full Name *
               </label>
               <input
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                style={{ width: '100%' }}
                 required
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                Email Address
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Email Address *
               </label>
               <input
                 type="email"
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
-                style={{ width: '100%' }}
                 required
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
-                Phone Number
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: 5, color: '#334155' }}>
+                Phone Number *
               </label>
               <input
                 type="tel"
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
-                style={{ width: '100%' }}
                 required
               />
             </div>
 
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: '#f8fafc',
-                border: '1px solid var(--border-main)',
-                fontSize: '0.8rem',
-                color: 'var(--text-sub)',
-              }}
-            >
-              <strong>Academic Rule:</strong> Section and status cannot be changed directly via edit. To change tracks, attendees must cancel and re-register.
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
                 type="button"
                 onClick={() => setEditAttendee(null)}
@@ -421,31 +562,27 @@ export const Attendees = () => {
         </Modal>
       )}
 
-      {/* Cancel Dialog */}
+      {/* Confirm Cancel Dialog */}
       {cancelTarget && (
         <ConfirmDialog
           isOpen={true}
-          onClose={() => setCancelTarget(null)}
+          title="Cancel Registration"
+          message={`Are you sure you want to cancel the registration for ${cancelTarget.name}? Their reserved seat and kit will be released back to the event pool.`}
+          confirmLabel={isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
           onConfirm={handleConfirmCancel}
-          title="Cancel Attendee Registration"
-          message={`Are you sure you want to cancel the registration for ${cancelTarget.name} (${cancelTarget.section})? This will decrement section occupancy and free up one seat.`}
-          confirmText="Yes, Cancel Registration"
-          isDestructive={true}
-          isLoading={isCancelling}
+          onClose={() => setCancelTarget(null)}
         />
       )}
 
-      {/* Delete Dialog */}
+      {/* Confirm Delete Dialog */}
       {deleteTarget && (
         <ConfirmDialog
           isOpen={true}
-          onClose={() => setDeleteTarget(null)}
+          title="Remove Attendee"
+          message={`Are you sure you want to delete ${deleteTarget.name} permanently? This action cannot be undone.`}
+          confirmLabel={isDeleting ? 'Deleting...' : 'Delete Attendee'}
           onConfirm={handleConfirmDelete}
-          title="Permanently Delete Attendee"
-          message={`Are you sure you want to permanently remove ${deleteTarget.name} from the database? This action cannot be undone.`}
-          confirmText="Yes, Delete Record"
-          isDestructive={true}
-          isLoading={isDeleting}
+          onClose={() => setDeleteTarget(null)}
         />
       )}
     </div>

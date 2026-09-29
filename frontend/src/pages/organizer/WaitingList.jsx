@@ -3,14 +3,17 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api';
 import { Spinner } from '../../components/Spinner';
 import { useToast } from '../../context/ToastContext';
+import { triggerConfetti } from '../../utils/confetti';
 import { 
   ListOrdered, 
   UserCheck, 
   CheckCircle2, 
-  AlertTriangle, 
+  AlertCircle, 
   RefreshCw, 
   ShieldCheck,
-  Cpu
+  Zap,
+  ArrowRight,
+  Clock
 } from 'lucide-react';
 
 export const WaitingList = () => {
@@ -28,7 +31,7 @@ export const WaitingList = () => {
         setQueueData(res.data);
       }
     } catch {
-      showToast('Failed to load FIFO queue data', 'error');
+      showToast('Failed to load queue data', 'error');
     } finally {
       setLoading(false);
     }
@@ -38,6 +41,7 @@ export const WaitingList = () => {
     loadQueue();
   }, [activeEventId]);
 
+  // Admit Next in FIFO queue
   const handleAdmitNext = async () => {
     setProcessing(true);
     setLastActionResult(null);
@@ -49,20 +53,64 @@ export const WaitingList = () => {
       });
 
       if (res.success) {
-        showToast(res.message, 'success');
+        triggerConfetti(2500);
+        showToast(`Admitted candidate from front of queue!`, 'success');
         loadQueue();
       } else {
         showToast(res.message, 'error');
       }
     } catch {
-      showToast('Network error while executing Admit Next', 'error');
+      showToast('Network error executing admission', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Simulate Seat Opening & Instant Admission
+  const handleSimulateSeatOpening = async () => {
+    if (!frontItem) return;
+    setProcessing(true);
+    setLastActionResult(null);
+
+    try {
+      if (frontItem.canBeAdmitted) {
+        const res = await api.admitNext(activeEventId);
+        if (res.success) {
+          triggerConfetti(2800);
+          showToast(`Admitted ${frontItem.name} into ${frontItem.section}!`, 'success');
+          loadQueue();
+        } else {
+          showToast(res.message, 'error');
+        }
+      } else {
+        const secRes = await api.getSections(activeEventId);
+        if (secRes.success && secRes.data) {
+          const matchSec = secRes.data.find(s => s.name === frontItem.section) || secRes.data[0];
+          if (matchSec) {
+            const updateRes = await api.updateSectionCapacity(matchSec.id, matchSec.capacity + 1);
+            if (updateRes.success) {
+              triggerConfetti(2800);
+              showToast(`Seat opened! Auto-admitted ${frontItem.name} to ${matchSec.name}!`, 'success');
+              setLastActionResult({
+                success: true,
+                message: `Admitted ${frontItem.name} immediately via newly opened seat in ${matchSec.name}.`,
+              });
+              loadQueue();
+            } else {
+              showToast(updateRes.message || 'Could not expand capacity', 'error');
+            }
+          }
+        }
+      }
+    } catch (err) {
+      showToast('Error during seat simulation', 'error');
     } finally {
       setProcessing(false);
     }
   };
 
   if (loading && !queueData) {
-    return <Spinner size={40} label="Loading FIFO Waiting Queue..." />;
+    return <Spinner size={36} label="Loading waitlist queue..." />;
   }
 
   const items = queueData?.items || [];
@@ -70,18 +118,56 @@ export const WaitingList = () => {
   const isQueueEmpty = items.length === 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: '1100px', margin: '0 auto' }}>
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start', 
+          flexWrap: 'wrap', 
+          gap: 16,
+          padding: '24px 28px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+        }}
+      >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            <Cpu size={15} /> Academic DSA Feature
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                backgroundColor: '#fffbeb',
+                color: '#92400e',
+                border: '1px solid #fde68a',
+              }}
+            >
+              FIFO Circular Array Queue
+            </span>
           </div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: 4 }}>
-            FIFO Waiting Queue
+
+          <h1 
+            style={{ 
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.75rem', 
+              fontWeight: 700, 
+              color: '#0f172a', 
+              letterSpacing: '-0.025em',
+              lineHeight: 1.25,
+              margin: '0 0 6px 0',
+            }}
+          >
+            Waitlist Queue Dispatch
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginTop: 2 }}>
-            <strong>First In, First Out</strong> — Attendees in {activeEvent?.title || 'this event'} are processed strictly in registration order.
+
+          <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>
+            Strict first-come, first-served queue for <strong>{activeEvent?.title || 'this event'}</strong>. When seats open or capacity expands, attendees are promoted in order.
           </p>
         </div>
 
@@ -89,321 +175,320 @@ export const WaitingList = () => {
           onClick={loadQueue}
           disabled={loading}
           className="btn btn-secondary btn-sm"
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh Queue
         </button>
       </div>
 
-      {/* Hero "NEXT IN FIFO" Action Card */}
+      {/* Front Candidate Console Card */}
       <div
-        className="card gradient-top-accent"
         style={{
-          padding: '32px',
-          background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(236, 72, 153, 0.03) 50%, #ffffff 100%)',
-          boxShadow: 'var(--shadow-lg)',
-          border: '1px solid rgba(99, 102, 241, 0.25)',
+          borderRadius: '16px',
+          backgroundColor: '#ffffff',
+          padding: '24px 28px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
-          <div style={{ flex: 1, minWidth: '280px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <span
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'var(--grad-primary)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '0.78rem',
-                  letterSpacing: '0.06em',
-                  boxShadow: 'var(--shadow-primary)',
-                }}
-              >
-                NEXT IN FIFO (FRONT)
-              </span>
-              <span className="mono-font" style={{ color: 'var(--ink-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
-                Queue Length: {items.length}
-              </span>
-            </div>
-
-            {frontItem ? (
-              <div>
-                <h2 className="display-font" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--ink-primary)', marginBottom: 6 }}>
-                  {frontItem.name}
-                </h2>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: '0.88rem', color: 'var(--ink-secondary)' }}>
-                  <span>ID: <strong style={{ color: 'var(--ink-primary)', fontFamily: 'var(--font-mono)' }}>{frontItem.registrationId}</strong></span>
-                  <span>•</span>
-                  <span>Requested Track: <strong style={{ color: '#4f46e5' }}>{frontItem.section}</strong></span>
-                  <span>•</span>
-                  <span>
-                    Track Status:{' '}
-                    <strong style={{ color: frontItem.canBeAdmitted ? '#059669' : '#dc2626' }}>
-                      {frontItem.canBeAdmitted
-                        ? `Available (${frontItem.sectionAvailable} seats free)`
-                        : 'Full (0 seats free)'}
-                    </strong>
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <h2 className="display-font" style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--ink-secondary)', marginBottom: 4 }}>
-                  Waiting Queue is Currently Empty
-                </h2>
-                <p style={{ color: 'var(--ink-muted)', fontSize: '0.88rem' }}>
-                  When attendees register for sessions that have reached capacity, they will queue here in FIFO order.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Action Button */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-            <button
-              onClick={handleAdmitNext}
-              disabled={isQueueEmpty || processing}
-              className={`btn ${frontItem?.canBeAdmitted ? 'btn-emerald' : 'btn-primary'} btn-lg`}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '10px',
+                backgroundColor: '#eef2ff',
+                color: '#4f46e5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              {processing ? (
-                'Processing Admission...'
-              ) : (
-                <>
-                  <UserCheck size={20} />
-                  Admit Next Attendee →
-                </>
-              )}
-            </button>
-            <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 600 }}>
-              Operates directly on array queue front
-            </span>
+              <ListOrdered size={18} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '1rem', color: '#0f172a' }}>
+                Queue Dispatch Status
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                {isQueueEmpty ? 'No attendees waiting' : `${items.length} candidate(s) currently in line`}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Action Feedback Banner */}
-        {lastActionResult && (
-          <div
+          <span
             style={{
-              marginTop: 22,
-              padding: '16px 20px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: lastActionResult.success ? 'var(--status-admitted-bg)' : 'var(--status-full-bg)',
-              border: `1px solid ${lastActionResult.success ? 'var(--status-admitted-border)' : 'var(--status-full-border)'}`,
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
-              fontSize: '0.9rem',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              padding: '3px 8px',
+              borderRadius: '6px',
+              backgroundColor: isQueueEmpty ? '#ecfdf5' : '#fffbeb',
+              color: isQueueEmpty ? '#065f46' : '#92400e',
+              border: isQueueEmpty ? '1px solid #a7f3d0' : '1px solid #fde68a',
             }}
           >
-            {lastActionResult.success ? (
-              <CheckCircle2 size={20} style={{ color: '#059669', flexShrink: 0, marginTop: 1 }} />
-            ) : (
-              <AlertTriangle size={20} style={{ color: '#dc2626', flexShrink: 0, marginTop: 1 }} />
-            )}
-            <div style={{ color: lastActionResult.success ? '#047857' : '#b91c1c', lineHeight: 1.45 }}>
-              <strong>{lastActionResult.success ? 'FIFO Admission Successful:' : 'Strict FIFO Admission Blocked:'}</strong>{' '}
-              {lastActionResult.message}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Academic Rule Explanation Card */}
-      <div
-        style={{
-          padding: '18px 24px',
-          borderRadius: 'var(--radius-lg)',
-          backgroundColor: '#ffffff',
-          border: '1px solid var(--border-main)',
-          boxShadow: 'var(--shadow-xs)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          fontSize: '0.88rem',
-          color: 'var(--ink-secondary)',
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--grad-primary)',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            boxShadow: 'var(--shadow-primary)',
-          }}
-        >
-          <ShieldCheck size={20} />
-        </div>
-        <div>
-          <strong style={{ color: 'var(--ink-primary)' }}>Strict No-Skip Policy:</strong> If the front attendee's requested section is full, the C++ backend refuses admission and <em>will not skip</em> to candidates behind them. Admission only proceeds once capacity opens up for the front candidate.
-        </div>
-      </div>
-
-      {/* Visual FIFO Queue Representation */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 className="display-font" style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--ink-primary)' }}>
-            Active Queue Order ({items.length} Attendees)
-          </h3>
-          <span className="mono-font" style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', fontWeight: 600 }}>
-            Array Circular Indexing • (front + i) % MAX_QUEUE
+            {isQueueEmpty ? 'Clear' : 'Active Waitlist'}
           </span>
         </div>
 
-        {items.length === 0 ? (
+        {isQueueEmpty ? (
           <div
-            className="card"
             style={{
-              padding: '48px',
+              padding: '36px',
               textAlign: 'center',
-              color: 'var(--ink-muted)',
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              border: '1px dashed #cbd5e1',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
             }}
           >
-            <ListOrdered size={40} style={{ color: '#4f46e5', margin: '0 auto 12px' }} />
-            <h4 className="display-font" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--ink-primary)', marginBottom: 4 }}>
-              No Waiting Attendees
-            </h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--ink-muted)' }}>
-              All registered attendees for {activeEvent?.title || 'this event'} have been admitted.
+            <CheckCircle2 size={28} style={{ color: '#10b981' }} />
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '1rem' }}>
+              No Attendees in Waitlist
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', maxWidth: '360px', margin: 0 }}>
+              All registered candidates have been admitted with seats. New registrations when the venue is full will enter this queue automatically.
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* FRONT Indicator Marker */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Candidate #01 Card */}
             <div
               style={{
+                padding: '22px 24px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #fffdf7 0%, #fff7ed 100%)',
+                border: '1.5px solid #fed7aa',
+                boxShadow: '0 4px 18px -2px rgba(245, 158, 11, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '8px',
-                color: '#4f46e5',
-                fontWeight: 800,
-                fontSize: '0.8rem',
-                letterSpacing: '0.08em',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 16,
               }}
             >
-              <span>▼ FRONT OF QUEUE (FIRST IN LINE)</span>
-            </div>
-
-            {items.map((att, idx) => {
-              const isFront = idx === 0;
-
-              return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div
-                  key={att.id}
-                  className="card"
                   style={{
-                    padding: '16px 20px',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+                    color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 14,
-                    border: isFront ? '2px solid #6366f1' : '1px solid var(--border-main)',
-                    boxShadow: isFront ? '0 6px 20px rgba(99, 102, 241, 0.15)' : 'var(--shadow-xs)',
-                    background: isFront ? 'linear-gradient(135deg, rgba(79, 70, 229, 0.04) 0%, #ffffff 100%)' : '#ffffff',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '1.1rem',
+                    boxShadow: '0 4px 12px rgba(234, 88, 12, 0.25)',
+                    flexShrink: 0,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div
-                      className="mono-font"
+                  01
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span
                       style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 'var(--radius-sm)',
-                        background: isFront ? 'var(--grad-primary)' : 'var(--bg-subtle)',
-                        color: isFront ? '#ffffff' : 'var(--ink-secondary)',
-                        display: 'flex',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        backgroundColor: '#fef3c7',
+                        color: '#b45309',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid #fde68a',
+                        display: 'inline-flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 800,
-                        fontSize: '0.92rem',
-                        boxShadow: isFront ? 'var(--shadow-primary)' : 'none',
+                        gap: 4,
                       }}
                     >
-                      #{String(att.waitingPosition).padStart(2, '0')}
-                    </div>
-
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span className="display-font" style={{ fontSize: '1.08rem', fontWeight: 800, color: 'var(--ink-primary)' }}>
-                          {att.name}
-                        </span>
-                        <span className="mono-font" style={{ fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-                          {att.registrationId}
-                        </span>
-                        {isFront && (
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 800,
-                              background: 'var(--grad-primary)',
-                              color: '#ffffff',
-                              padding: '2px 8px',
-                              borderRadius: 'var(--radius-full)',
-                            }}
-                          >
-                            HEAD
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 4, fontSize: '0.82rem', color: 'var(--ink-muted)' }}>
-                        <span>Email: {att.email}</span>
-                        <span>•</span>
-                        <span>Joined: {att.registeredAt}</span>
-                      </div>
-                    </div>
+                      <Clock size={11} />
+                      Head of Queue (Priority 1)
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                      Target Track: <strong style={{ color: '#0f172a' }}>{frontItem.section}</strong>
+                    </span>
                   </div>
 
-                  {/* Section Status */}
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#4f46e5' }}>
-                      {att.section}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', marginTop: 4 }}>
-                      {att.sectionHasSpace ? (
-                        <span style={{ color: '#047857', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#ecfdf5', padding: '2px 8px', borderRadius: 'var(--radius-full)', border: '1px solid #a7f3d0' }}>
-                          <CheckCircle2 size={13} /> {att.sectionAvailable} seats free
-                        </span>
-                      ) : (
-                        <span style={{ color: '#b91c1c', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fef2f2', padding: '2px 8px', borderRadius: 'var(--radius-full)', border: '1px solid #fecaca' }}>
-                          <AlertTriangle size={13} /> Track Full ({att.sectionOccupied}/{att.sectionCapacity})
-                        </span>
-                      )}
-                    </div>
+                  <div 
+                    style={{ 
+                      fontFamily: 'var(--font-display)',
+                      fontSize: '1.25rem', 
+                      fontWeight: 700, 
+                      color: '#0f172a', 
+                      marginTop: 3 
+                    }}
+                  >
+                    {frontItem.name}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: 2 }}>
+                    {frontItem.email} • {frontItem.phone}
                   </div>
                 </div>
-              );
-            })}
+              </div>
 
-            {/* REAR Indicator Marker */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '8px',
-                color: 'var(--ink-muted)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                letterSpacing: '0.08em',
-              }}
-            >
-              <span>▲ REAR OF QUEUE (LAST JOINED)</span>
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleSimulateSeatOpening}
+                  disabled={processing}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                  title="Expand capacity by +1 and automatically admit this attendee"
+                >
+                  <Zap size={14} style={{ color: '#d97706' }} />
+                  <span>Open Seat (+1) & Admit</span>
+                </button>
+
+                <button
+                  onClick={handleAdmitNext}
+                  disabled={processing}
+                  className="btn btn-sm"
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                    color: '#ffffff',
+                    background: frontItem.canBeAdmitted
+                      ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                      : 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
+                    boxShadow: frontItem.canBeAdmitted
+                      ? '0 4px 14px rgba(5, 150, 105, 0.3)'
+                      : '0 4px 14px rgba(79, 70, 229, 0.3)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <UserCheck size={15} />
+                  <span>{processing ? 'Admitting...' : 'Admit Candidate'}</span>
+                </button>
+              </div>
             </div>
+
+            {lastActionResult && (
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: lastActionResult.success ? '#ecfdf5' : '#fef2f2',
+                  border: `1px solid ${lastActionResult.success ? '#a7f3d0' : '#fecaca'}`,
+                  color: lastActionResult.success ? '#065f46' : '#991b1b',
+                  fontSize: '0.84rem',
+                  fontWeight: 500,
+                }}
+              >
+                {lastActionResult.message}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Full Queue Table */}
+      {!isQueueEmpty && (
+        <div 
+          style={{ 
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
+              Full Queue Sequence
+            </div>
+            <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
+              Strict FIFO Order Guaranteed
+            </span>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px 18px', width: '90px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Position</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Attendee</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Target Track</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Contact</th>
+                  <th style={{ padding: '12px 18px', fontSize: '0.78rem', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => (
+                  <tr key={item.id} className="table-row-hover" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '14px 18px' }}>
+                      <span 
+                        style={{ 
+                          fontFamily: 'var(--font-mono)', 
+                          fontWeight: 700, 
+                          color: index === 0 ? '#b45309' : '#4f46e5', 
+                          backgroundColor: index === 0 ? '#fffbeb' : '#eef2ff', 
+                          padding: '2px 8px', 
+                          borderRadius: '6px', 
+                          border: index === 0 ? '1px solid #fde68a' : '1px solid #c7d2fe',
+                          fontSize: '0.75rem', 
+                        }}
+                      >
+                        #{String(item.waitingPosition).padStart(2, '0')}
+                      </span>
+                    </td>
+
+                    <td style={{ padding: '14px 18px' }}>
+                      <div style={{ fontWeight: 650, color: '#0f172a' }}>{item.name}</div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: '#64748b' }}>
+                        ID #{item.id}
+                      </span>
+                    </td>
+
+                    <td style={{ padding: '14px 18px', color: '#0f172a', fontWeight: 550 }}>
+                      {item.section}
+                    </td>
+
+                    <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '0.8125rem' }}>
+                      <div>{item.email}</div>
+                      <span>{item.phone}</span>
+                    </td>
+
+                    <td style={{ padding: '14px 18px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          backgroundColor: index === 0 ? '#ecfdf5' : '#f1f5f9',
+                          color: index === 0 ? '#065f46' : '#64748b',
+                          padding: '3px 9px',
+                          borderRadius: '6px',
+                          border: index === 0 ? '1px solid #a7f3d0' : '1px solid #e2e8f0',
+                        }}
+                      >
+                        {index === 0 ? 'Next Eligible' : `Queue Position #${item.waitingPosition}`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

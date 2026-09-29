@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS events (
     date TEXT NOT NULL,
     venue TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT 'Technology',
-    status TEXT NOT NULL DEFAULT 'ACTIVE'
+    status TEXT NOT NULL DEFAULT 'ACTIVE',
+    imageUrl TEXT DEFAULT ''
 );
 
 -- 2. Sections / Tracks Table

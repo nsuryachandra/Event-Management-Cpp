@@ -1,0 +1,19 @@
+# Logs and temporary files
+*.log
+*.txt
+backend/err.*
+backend/out.*
+
+# Node dependencies
+node_modules/
+frontend/node_modules/
+.vite/
+frontend/node_modules/.vite/
+
+# Environment files
+.env
+.env.local
+
+# Operating System files
+.DS_Store
+Thumbs.db

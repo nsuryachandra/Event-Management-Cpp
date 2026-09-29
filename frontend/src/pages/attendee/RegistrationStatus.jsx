@@ -2,18 +2,11 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import Spinner from '../../components/Spinner';
-import Badge from '../../components/Badge';
+import HolographicPass from '../../components/HolographicPass';
 import { 
   Search, 
   UserCheck, 
-  Calendar, 
-  Layers, 
-  Ticket, 
   AlertCircle,
-  ArrowRight,
-  ShieldCheck,
-  Clock,
-  CheckCircle2,
   Sparkles
 } from 'lucide-react';
 
@@ -50,11 +43,11 @@ export const RegistrationStatus = () => {
   return (
     <div style={{ maxWidth: '720px', margin: '54px auto 90px', padding: '0 24px' }}>
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+      <div className="no-print" style={{ textAlign: 'center', marginBottom: 36 }}>
         <div
           style={{
-            width: 50,
-            height: 50,
+            width: 52,
+            height: 52,
             borderRadius: '16px',
             background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
             color: '#ffffff',
@@ -71,12 +64,12 @@ export const RegistrationStatus = () => {
           Registration & Queue Tracker
         </h1>
         <p style={{ color: '#64748b', fontSize: '0.96rem', marginTop: 6, maxWidth: '520px', margin: '6px auto 0' }}>
-          Track your live admission status or check your mathematical position in the deterministic Circular FIFO Queue.
+          Look up your instant pass status or live queue priority using your Registration ID or Email.
         </p>
       </div>
 
       {/* Radiant Search Bar */}
-      <form onSubmit={handleSearch} style={{ marginBottom: 32 }}>
+      <form className="no-print" onSubmit={handleSearch} style={{ marginBottom: 36 }}>
         <div
           style={{
             display: 'flex',
@@ -101,32 +94,26 @@ export const RegistrationStatus = () => {
             />
             <input
               type="text"
-              placeholder="Search by Email (e.g. alice@test.com) or Pass ID (e.g. EVT-1001)..."
+              placeholder="Search by Registration ID (e.g. 1) or Email..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{
                 width: '100%',
-                paddingLeft: 46,
-                paddingRight: 14,
-                paddingTop: 10,
-                paddingBottom: 10,
                 border: 'none',
-                backgroundColor: 'transparent',
                 outline: 'none',
-                fontSize: '0.92rem',
+                padding: '12px 16px 12px 46px',
+                fontSize: '0.95rem',
+                backgroundColor: 'transparent',
                 color: '#0f172a',
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
-              required
             />
           </div>
           <button
             type="submit"
             disabled={loading}
             style={{
-              padding: '10px 24px',
-              borderRadius: '10px',
-              fontSize: '0.88rem',
+              padding: '0 24px',
+              borderRadius: '12px',
               fontWeight: 800,
               color: '#ffffff',
               background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%)',
@@ -145,6 +132,7 @@ export const RegistrationStatus = () => {
 
       {searched && errorMsg && (
         <div
+          className="no-print"
           style={{
             padding: '16px 20px',
             borderRadius: '14px',
@@ -165,79 +153,26 @@ export const RegistrationStatus = () => {
       )}
 
       {attendee && (
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '20px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 12px 30px -4px rgba(79, 70, 229, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.04)',
-            padding: '28px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-            <div>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                ATTENDEE RECORD
-              </span>
-              <h3 className="display-font" style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0f172a', marginTop: 2 }}>
-                {attendee.name}
-              </h3>
-              <span style={{ fontSize: '0.86rem', color: '#64748b' }}>
-                {attendee.email} • {attendee.phone}
-              </span>
-            </div>
-
-            <Badge
-              status={attendee.status}
-              label={attendee.status === 'ADMITTED' ? 'Verified Admitted' : `FIFO Position #${attendee.waitingPosition}`}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid #f1f5f9', paddingTop: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-              <span style={{ color: '#64748b' }}>Event</span>
-              <strong style={{ color: '#0f172a' }}>{attendee.eventTitle}</strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-              <span style={{ color: '#64748b' }}>Place / Session</span>
-              <strong style={{ color: '#4f46e5' }}>{attendee.section}</strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-              <span style={{ color: '#64748b' }}>Registered Timestamp</span>
-              <span className="mono-font" style={{ color: '#334155', fontSize: '0.84rem' }}>{attendee.registeredAt || '2026-09-04'}</span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-              <span style={{ color: '#64748b' }}>Pass Code ID</span>
-              <span className="mono-font" style={{ fontWeight: 800, color: '#4f46e5' }}>
-                EVT-{attendee.id + 1000}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
-            <Link
-              to={`/registration/${attendee.id}`}
+        <div style={{ marginTop: 24 }}>
+          <div className="no-print" style={{ textAlign: 'center', marginBottom: 20 }}>
+            <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 7,
-                fontSize: '0.88rem',
-                fontWeight: 800,
-                padding: '10px 20px',
-                borderRadius: '10px',
-                color: '#ffffff',
-                background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%)',
-                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
-                border: 'none',
+                gap: 6,
+                backgroundColor: '#eef2ff',
+                color: '#4f46e5',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                padding: '6px 14px',
+                borderRadius: '999px',
+                border: '1px solid #c7d2fe',
               }}
             >
-              <Ticket size={16} />
-              <span>View Official Badge Pass</span>
-            </Link>
+              <Sparkles size={14} /> Interactive 3D Digital Credential
+            </span>
           </div>
+          <HolographicPass attendee={attendee} />
         </div>
       )}
     </div>
@@ -245,4 +180,3 @@ export const RegistrationStatus = () => {
 };
 
 export default RegistrationStatus;
-

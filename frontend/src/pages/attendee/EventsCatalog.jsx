@@ -9,15 +9,16 @@ import {
   ArrowRight, 
   Search, 
   Ticket, 
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  ArrowUpRight,
-  Sparkles,
-  Users,
-  Package,
-  Zap,
-  Tag
+  Clock, 
+  ArrowUpRight, 
+  Sparkles, 
+  Users, 
+  Package, 
+  Tag,
+  Cpu,
+  Cloud,
+  Terminal,
+  Flame
 } from 'lucide-react';
 
 export const EventsCatalog = () => {
@@ -25,6 +26,7 @@ export const EventsCatalog = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [showUpcomingOnly, setShowUpcomingOnly] = useState(false);
 
   useEffect(() => {
     api.getEvents()
@@ -44,7 +46,8 @@ export const EventsCatalog = () => {
       (e.tagline && e.tagline.toLowerCase().includes(search.toLowerCase())) ||
       (e.venue && e.venue.toLowerCase().includes(search.toLowerCase()));
     const matchesCat = categoryFilter === 'ALL' || e.category === categoryFilter;
-    return matchesSearch && matchesCat;
+    const matchesUpcoming = !showUpcomingOnly || (e.date && (e.date.includes('2026') || e.date.includes('2027')));
+    return matchesSearch && matchesCat && matchesUpcoming;
   });
 
   // Category Accent Colors & Gradients
@@ -83,6 +86,52 @@ export const EventsCatalog = () => {
     }
   };
 
+  const getEventCoverConfig = (category = '') => {
+    const cat = category.toLowerCase();
+    if (cat.includes('ai') || cat.includes('robot')) {
+      return {
+        gradient: 'radial-gradient(ellipse at 85% 20%, rgba(16, 185, 129, 0.5) 0%, transparent 65%), radial-gradient(ellipse at 15% 85%, rgba(6, 182, 212, 0.4) 0%, transparent 60%), linear-gradient(135deg, #022c22 0%, #064e3b 45%, #0f172a 100%)',
+        accentColor: '#10b981',
+        badgeBg: 'rgba(16, 185, 129, 0.22)',
+        badgeBorder: 'rgba(52, 211, 153, 0.4)',
+        badgeText: '#a7f3d0',
+        icon: Cpu,
+        themeTag: 'Neural AI Summit',
+      };
+    }
+    if (cat.includes('cloud') || cat.includes('devops')) {
+      return {
+        gradient: 'radial-gradient(ellipse at 85% 20%, rgba(249, 115, 22, 0.5) 0%, transparent 65%), radial-gradient(ellipse at 15% 85%, rgba(219, 39, 119, 0.4) 0%, transparent 60%), linear-gradient(135deg, #431407 0%, #7c2d12 45%, #0f172a 100%)',
+        accentColor: '#f97316',
+        badgeBg: 'rgba(249, 115, 22, 0.22)',
+        badgeBorder: 'rgba(251, 146, 60, 0.4)',
+        badgeText: '#fed7aa',
+        icon: Cloud,
+        themeTag: 'Cloud Infrastructure',
+      };
+    }
+    if (cat.includes('hack') || cat.includes('fintech') || cat.includes('finance')) {
+      return {
+        gradient: 'radial-gradient(ellipse at 85% 20%, rgba(244, 63, 94, 0.5) 0%, transparent 65%), radial-gradient(ellipse at 15% 85%, rgba(139, 92, 246, 0.4) 0%, transparent 60%), linear-gradient(135deg, #4c0519 0%, #881337 45%, #0f172a 100%)',
+        accentColor: '#f43f5e',
+        badgeBg: 'rgba(244, 63, 94, 0.22)',
+        badgeBorder: 'rgba(251, 113, 133, 0.4)',
+        badgeText: '#fecdd3',
+        icon: Terminal,
+        themeTag: 'Hackathon Sprint',
+      };
+    }
+    return {
+      gradient: 'radial-gradient(ellipse at 85% 20%, rgba(99, 102, 241, 0.5) 0%, transparent 65%), radial-gradient(ellipse at 15% 85%, rgba(236, 72, 153, 0.4) 0%, transparent 60%), linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #0f172a 100%)',
+      accentColor: '#818cf8',
+      badgeBg: 'rgba(99, 102, 241, 0.22)',
+      badgeBorder: 'rgba(129, 140, 248, 0.4)',
+      badgeText: '#c7d2fe',
+      icon: Sparkles,
+      themeTag: 'Flagship Tech Conclave',
+    };
+  };
+
   return (
     <div style={{ paddingBottom: 100 }}>
       {/* Radiant Luxury Hero Section */}
@@ -111,18 +160,40 @@ export const EventsCatalog = () => {
         />
 
         <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 18 }}>
+
+            {/* Radiant Announcement Badge */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 16px',
+                borderRadius: 999,
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                color: '#4f46e5',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.08)',
+              }}
+            >
+              <Sparkles size={14} style={{ color: '#6366f1' }} />
+              <span>Next-Gen Event Admissions & Fair FIFO Queuing</span>
+            </div>
 
             {/* Headline */}
             <h1
               className="display-font"
               style={{
-                fontSize: 'clamp(2.5rem, 5vw, 4rem)',
-                fontWeight: 850,
+                fontFamily: "var(--font-display)",
+                fontSize: 'clamp(2.5rem, 4.8vw, 3.8rem)',
+                fontWeight: 800,
                 lineHeight: 1.15,
-                letterSpacing: '-0.03em',
+                letterSpacing: '-0.025em',
                 color: '#0f172a',
-                maxWidth: '900px',
+                maxWidth: '920px',
               }}
             >
               Intelligent Admissions &{' '}
@@ -141,115 +212,17 @@ export const EventsCatalog = () => {
             {/* Sub-copy */}
             <p
               style={{
-                fontSize: '1.125rem',
-                color: '#475569',
-                lineHeight: 1.65,
-                maxWidth: '700px',
+                fontSize: '1.05rem',
+                color: '#64748b',
+                lineHeight: 1.6,
+                maxWidth: '620px',
                 fontWeight: 450,
-                marginTop: '4px',
+                marginTop: '2px',
               }}
             >
-              Reserve your seat at premium conferences, track live venue seating limits in real time, and experience guaranteed mathematical zero-skip admissions.
+              Reserve your seat at premier conferences, track live venue seating in real time, and experience seamless, fair admissions.
             </p>
 
-            {/* Feature Cards */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginTop: 16 }}>
-              <div
-                className="hero-feature-card"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  fontSize: '0.875rem',
-                  fontWeight: 650,
-                  color: '#1e293b',
-                  backgroundColor: '#ffffff',
-                  padding: '10px 18px',
-                  borderRadius: '14px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 30,
-                    height: 30,
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  }}
-                >
-                  <ShieldCheck size={18} style={{ color: '#2563eb' }} />
-                </div>
-                <span>Deterministic FIFO Fairness</span>
-              </div>
-
-              <div
-                className="hero-feature-card"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  fontSize: '0.875rem',
-                  fontWeight: 650,
-                  color: '#1e293b',
-                  backgroundColor: '#ffffff',
-                  padding: '10px 18px',
-                  borderRadius: '14px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 30,
-                    height: 30,
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(5, 150, 105, 0.08)',
-                  }}
-                >
-                  <CheckCircle2 size={18} style={{ color: '#059669' }} />
-                </div>
-                <span>Live Seat & Capacity Sync</span>
-              </div>
-
-              <div
-                className="hero-feature-card"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  fontSize: '0.875rem',
-                  fontWeight: 650,
-                  color: '#1e293b',
-                  backgroundColor: '#ffffff',
-                  padding: '10px 18px',
-                  borderRadius: '14px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 30,
-                    height: 30,
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(217, 119, 6, 0.08)',
-                  }}
-                >
-                  <Zap size={18} style={{ color: '#d97706' }} />
-                </div>
-                <span>Ultra-Fast In-Memory Arrays</span>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -289,6 +262,7 @@ export const EventsCatalog = () => {
               placeholder="Search by event title, venue, or topics..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              className="input-focus-glow"
               style={{
                 width: '100%',
                 paddingLeft: 42,
@@ -297,11 +271,11 @@ export const EventsCatalog = () => {
                 paddingBottom: 10,
                 fontSize: '0.9rem',
                 borderRadius: '10px',
-                border: '1px solid #cbd5e1',
+                border: '1.5px solid #cbd5e1',
                 backgroundColor: '#f8fafc',
                 color: '#0f172a',
                 outline: 'none',
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontFamily: "var(--font-sans)",
                 transition: 'all 0.15s ease',
               }}
             />
@@ -316,32 +290,58 @@ export const EventsCatalog = () => {
                   key={cat}
                   type="button"
                   onClick={() => setCategoryFilter(cat)}
+                  className="filter-pill-btn"
                   style={{
                     padding: '8px 18px',
                     borderRadius: '999px',
                     fontSize: '0.82rem',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    fontFamily: "'Outfit', sans-serif",
+                    fontFamily: "var(--font-display)",
                     letterSpacing: '0.01em',
                     border: isSelected ? '1px solid #4f46e5' : '1px solid #e2e8f0',
                     backgroundColor: isSelected ? '#4f46e5' : '#ffffff',
                     color: isSelected ? '#ffffff' : '#475569',
                     boxShadow: isSelected ? '0 4px 12px rgba(79, 70, 229, 0.3)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-                    transition: 'all 0.15s ease',
                   }}
                 >
                   {cat === 'ALL' ? '✨ All Conferences' : cat}
                 </button>
               );
             })}
+
+            {/* Dedicated Upcoming Filter Pill */}
+            <button
+              type="button"
+              onClick={() => setShowUpcomingOnly(!showUpcomingOnly)}
+              className="filter-pill-btn"
+              style={{
+                padding: '8px 18px',
+                borderRadius: '999px',
+                fontSize: '0.82rem',
+                fontWeight: 750,
+                cursor: 'pointer',
+                fontFamily: "var(--font-display)",
+                letterSpacing: '0.01em',
+                border: showUpcomingOnly ? '1px solid #f59e0b' : '1px solid #e2e8f0',
+                backgroundColor: showUpcomingOnly ? '#fef3c7' : '#ffffff',
+                color: showUpcomingOnly ? '#b45309' : '#475569',
+                boxShadow: showUpcomingOnly ? '0 4px 14px rgba(245, 158, 11, 0.25)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Flame size={14} style={{ color: showUpcomingOnly ? '#d97706' : '#f59e0b' }} />
+              <span>Upcoming 2026 Schedule</span>
+            </button>
           </div>
         </div>
 
         {/* Events Grid */}
         {loading ? (
           <div style={{ padding: '80px 0', textAlign: 'center' }}>
-            <Spinner size={32} label="Fetching active events from C++ Engine..." />
+            <Spinner size={32} label="Loading active events..." />
           </div>
         ) : filteredEvents.length === 0 ? (
           <div
@@ -390,71 +390,183 @@ export const EventsCatalog = () => {
               const occupancyPct = Math.min(100, Math.round((occupied / capacity) * 100));
               const seatsAvailable = Math.max(0, capacity - occupied);
               const isFull = seatsAvailable === 0;
+              const coverConfig = getEventCoverConfig(ev.category);
+              const CoverIcon = coverConfig.icon;
 
               return (
                 <div
                   key={ev.id}
-                  style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: '20px',
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 4px 20px -2px rgba(99, 102, 241, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-5px)';
-                    e.currentTarget.style.boxShadow = '0 16px 32px -4px rgba(79, 70, 229, 0.16), 0 6px 12px -2px rgba(15, 23, 42, 0.06)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 20px -2px rgba(99, 102, 241, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04)';
-                  }}
+                  className="event-card-interactive"
                 >
-                  {/* Top Colorful Accent Strip */}
+                  {/* Studio Mesh Gradient Banner or Custom Image Banner */}
                   <div
+                    className="event-card-cover"
                     style={{
-                      height: '6px',
-                      background: getCategoryGradient(ev.category),
-                      width: '100%',
+                      height: '200px',
+                      position: 'relative',
+                      background: coverConfig.gradient,
+                      overflow: 'hidden',
+                      padding: '18px 20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
                     }}
-                  />
+                  >
+                    {/* Custom Image Banner if specified */}
+                    {ev.imageUrl && (
+                      <>
+                        <img
+                          src={ev.imageUrl}
+                          alt={ev.title}
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            zIndex: 1,
+                            transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.45) 0%, rgba(15, 23, 42, 0.2) 40%, rgba(15, 23, 42, 0.88) 100%)',
+                            zIndex: 1,
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </>
+                    )}
 
-                  <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    {/* Category Chip & Event ID */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <span
+                    {/* Default Background Decorative Rings/Constellation if no image */}
+                    {!ev.imageUrl && (
+                      <>
+                        <div
+                          style={{
+                            position: 'absolute',
+                            right: -30,
+                            bottom: -40,
+                            width: 170,
+                            height: 170,
+                            borderRadius: '50%',
+                            border: '2px solid rgba(255, 255, 255, 0.08)',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                        <div
+                          className="event-card-watermark"
+                          style={{
+                            position: 'absolute',
+                            right: 20,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: 'rgba(255, 255, 255, 0.09)',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <CoverIcon size={110} strokeWidth={1.1} />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Top Row: Floating Glass Pill & Status Tag */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 2 }}>
+                      <div
                         style={{
-                          fontSize: '0.74rem',
-                          fontWeight: 800,
-                          backgroundColor: '#f1f5f9',
-                          color: getCategoryColor(ev.category),
-                          padding: '4px 12px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '4px 11px',
                           borderRadius: '999px',
-                          border: '1px solid #e2e8f0',
+                          backgroundColor: coverConfig.badgeBg,
+                          border: `1px solid ${coverConfig.badgeBorder}`,
+                          color: coverConfig.badgeText,
+                          fontSize: '0.74rem',
+                          fontWeight: 750,
+                          backdropFilter: 'blur(8px)',
                           letterSpacing: '0.04em',
                           textTransform: 'uppercase',
                         }}
                       >
-                        {ev.category || 'CONFERENCE'}
+                        <CoverIcon size={13} />
+                        <span>{ev.category || 'CONFERENCE'}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            letterSpacing: '0.04em',
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                            color: '#ffffff',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                            backdropFilter: 'blur(4px)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Upcoming
+                        </span>
+
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '3px 9px',
+                            borderRadius: '999px',
+                            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            color: '#f8fafc',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            backdropFilter: 'blur(8px)',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              backgroundColor: isFull ? '#ef4444' : '#10b981',
+                              boxShadow: isFull ? '0 0 8px #ef4444' : '0 0 8px #10b981',
+                            }}
+                          />
+                          <span>{isFull ? 'Queue Only' : 'Open'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Tagline on Cover */}
+                    <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.88)', letterSpacing: '0.02em' }}>
+                        {coverConfig.themeTag}
                       </span>
-                      <span className="mono-font" style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'rgba(255, 255, 255, 0.65)', fontWeight: 600 }}>
                         EVT-0{ev.id}
                       </span>
                     </div>
+                  </div>
+
+                  <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
                     {/* Title */}
                     <h3
-                      className="display-font"
+                      className="display-font event-card-title"
                       style={{
-                        fontSize: '1.42rem',
-                        fontWeight: 800,
+                        fontSize: '1.22rem',
+                        fontWeight: 750,
                         letterSpacing: '-0.02em',
                         color: '#0f172a',
                         marginBottom: 8,
-                        lineHeight: 1.3,
+                        lineHeight: 1.35,
                       }}
                     >
                       {ev.title}
@@ -463,8 +575,8 @@ export const EventsCatalog = () => {
                     {/* Description / Tagline */}
                     <p
                       style={{
-                        fontSize: '0.9rem',
-                        color: '#475569',
+                        fontSize: '0.88rem',
+                        color: '#64748b',
                         lineHeight: 1.55,
                         marginBottom: 18,
                         flex: 1,
@@ -475,6 +587,7 @@ export const EventsCatalog = () => {
 
                     {/* Live Capacity Meter */}
                     <div
+                      className="event-card-meter"
                       style={{
                         backgroundColor: '#f8fafc',
                         padding: '12px 14px',
@@ -552,6 +665,7 @@ export const EventsCatalog = () => {
                     <div style={{ display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
                       <Link
                         to={`/events/${ev.id}`}
+                        className="event-btn-details"
                         style={{
                           flex: 1,
                           display: 'inline-flex',
@@ -565,7 +679,7 @@ export const EventsCatalog = () => {
                           backgroundColor: '#f1f5f9',
                           color: '#334155',
                           border: '1px solid #e2e8f0',
-                          transition: 'all 0.15s ease',
+                          textDecoration: 'none',
                         }}
                       >
                         <span>Details</span>
@@ -574,6 +688,7 @@ export const EventsCatalog = () => {
 
                       <Link
                         to={`/register?eventId=${ev.id}`}
+                        className="event-btn-register"
                         style={{
                           flex: 1.3,
                           display: 'inline-flex',
@@ -588,7 +703,7 @@ export const EventsCatalog = () => {
                           background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%)',
                           boxShadow: '0 4px 14px rgba(79, 70, 229, 0.3)',
                           border: 'none',
-                          transition: 'all 0.15s ease',
+                          textDecoration: 'none',
                         }}
                       >
                         <Ticket size={15} />

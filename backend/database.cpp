@@ -48,6 +48,9 @@ bool initDatabase(const std::string& dbPath, const std::string& schemaSqlPath) {
     if (tableCount == 0) {
         // Fresh database: Execute schema.sql
         executeSqlFile(schemaSqlPath);
+    } else {
+        // Safe migration: Add imageUrl column if it doesn't exist
+        sqlite3_exec(db, "ALTER TABLE events ADD COLUMN imageUrl TEXT DEFAULT '';", nullptr, nullptr, nullptr);
     }
 
     return true;
@@ -62,7 +65,7 @@ void closeDatabase() {
 
 int loadEvents(Event arr[], int maxCount) {
     if (!db) return 0;
-    const char* sql = "SELECT id, title, tagline, description, date, venue, category, status FROM events ORDER BY id ASC;";
+    const char* sql = "SELECT id, title, tagline, description, date, venue, category, status, imageUrl FROM events ORDER BY id ASC;";
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return 0;
 
@@ -76,6 +79,8 @@ int loadEvents(Event arr[], int maxCount) {
         arr[count].venue = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
         arr[count].category = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
         arr[count].status = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+        const char* imgText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
+        arr[count].imageUrl = imgText ? imgText : "";
         count++;
     }
     sqlite3_finalize(stmt);
@@ -179,7 +184,7 @@ int loadQueueAttendeeIds(int queueIds[], int maxCount) {
 
 bool dbInsertEvent(Event& e) {
     if (!db) return false;
-    const char* sql = "INSERT INTO events (title, tagline, description, date, venue, category, status) VALUES (?, ?, ?, ?, ?, ?, ?);";
+    const char* sql = "INSERT INTO events (title, tagline, description, date, venue, category, status, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
 
@@ -190,6 +195,7 @@ bool dbInsertEvent(Event& e) {
     sqlite3_bind_text(stmt, 5, e.venue.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 6, e.category.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 7, e.status.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 8, e.imageUrl.c_str(), -1, SQLITE_TRANSIENT);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -202,7 +208,7 @@ bool dbInsertEvent(Event& e) {
 
 bool dbUpdateEvent(const Event& e) {
     if (!db) return false;
-    const char* sql = "UPDATE events SET title = ?, tagline = ?, description = ?, date = ?, venue = ?, category = ?, status = ? WHERE id = ?;";
+    const char* sql = "UPDATE events SET title = ?, tagline = ?, description = ?, date = ?, venue = ?, category = ?, status = ?, imageUrl = ? WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
 
@@ -213,11 +219,50 @@ bool dbUpdateEvent(const Event& e) {
     sqlite3_bind_text(stmt, 5, e.venue.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 6, e.category.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 7, e.status.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 8, e.id);
+    sqlite3_bind_text(stmt, 8, e.imageUrl.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 9, e.id);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     return (rc == SQLITE_DONE);
+}
+
+bool dbDeleteEvent(int id) {
+    if (!db) return false;
+    sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
+    std::string sqlQueue = "DELETE FROM queue_state WHERE eventId = " + std::to_string(id) + ";";
+    sqlite3_exec(db, sqlQueue.c_str(), nullptr, nullptr, nullptr);
+
+    std::string sqlAct = "DELETE FROM activities WHERE eventId = " + std::to_string(id) + ";";
+    sqlite3_exec(db, sqlAct.c_str(), nullptr, nullptr, nullptr);
+
+    std::string sqlRes = "DELETE FROM resources WHERE eventId = " + std::to_string(id) + ";";
+    sqlite3_exec(db, sqlRes.c_str(), nullptr, nullptr, nullptr);
+
+    std::string sqlAtt = "DELETE FROM attendees WHERE eventId = " + std::to_string(id) + ";";
+    sqlite3_exec(db, sqlAtt.c_str(), nullptr, nullptr, nullptr);
+
+    std::string sqlSec = "DELETE FROM sections WHERE eventId = " + std::to_string(id) + ";";
+    sqlite3_exec(db, sqlSec.c_str(), nullptr, nullptr, nullptr);
+
+    const char* sql = "DELETE FROM events WHERE id = ?;";
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
+    sqlite3_bind_int(stmt, 1, id);
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+        return true;
+    } else {
+        sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
 }
 
 bool dbInsertAttendee(Attendee& a) {
